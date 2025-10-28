@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -46,8 +47,12 @@ func (h *UrlHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url, _ := h.service.ShortenUrl(string(body))
+	fullURL := fmt.Sprintf("%s://%s/%s", "http", r.Host, url)
 
-	_, err = w.Write([]byte(url))
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusCreated)
+
+	_, err = w.Write([]byte(fullURL))
 	if err != nil {
 		http.Error(w, "failed to write a response", http.StatusBadRequest)
 	}
@@ -61,8 +66,5 @@ func (h *UrlHandler) ResolveUrl(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	url, _ := h.service.ResolveShortUrl(id)
 
-	_, err := w.Write([]byte(url))
-	if err != nil {
-		http.Error(w, "failed to write a response", http.StatusBadRequest)
-	}
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
