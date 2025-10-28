@@ -8,30 +8,30 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 )
 
-type UrlService struct {
-	repo repository.UrlRepository
+type URLService struct {
+	repo repository.URLRepository
 }
 
-func NewUrlService(repo repository.UrlRepository) *UrlService {
-	return &UrlService{repo: repo}
+func NewURLService(repo repository.URLRepository) *URLService {
+	return &URLService{repo: repo}
 }
 
-// ShortenUrl Хэширует url и возвращает первые 7 символов
+// ShortenURL Хэширует url и возвращает первые 7 символов
 // Есть вероятность, что будут одинаковые 7 символов у разных url, но так как проект маленький - закрыл глаза)
-func (s *UrlService) ShortenUrl(url string) (string, error) {
+func (s *URLService) ShortenURL(url string) (string, error) {
 	hash := sha1.Sum([]byte(url))
-	shortUrl := base64.URLEncoding.EncodeToString(hash[:])[:7]
+	shortURL := base64.URLEncoding.EncodeToString(hash[:])[:7]
 
-	err := s.repo.Save(shortUrl, url)
+	err := s.repo.Save(shortURL, url)
 	if err != nil {
 		return "", err
 	}
 
-	return shortUrl, nil
+	return shortURL, nil
 }
 
-func (s *UrlService) ResolveShortUrl(shortUrl string) (string, error) {
-	url, isFound := s.repo.GetByShort(shortUrl)
+func (s *URLService) ResolveShortURL(shortURL string) (string, error) {
+	url, isFound := s.repo.GetByShort(shortURL)
 
 	if isFound {
 		return url, nil

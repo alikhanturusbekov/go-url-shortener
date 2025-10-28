@@ -15,9 +15,9 @@ func main() {
 }
 
 func run() error {
-	urlRepo := repository.NewUrlMapRepository()
-	urlService := service.NewUrlService(urlRepo)
-	urlHandler := handler.NewUrlHandler(urlService)
+	urlRepo := repository.NewURLMapRepository()
+	urlService := service.NewURLService(urlRepo)
+	urlHandler := handler.NewURLHandler(urlService)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/`, urlHandler.ShortenUrl)

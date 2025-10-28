@@ -10,15 +10,15 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 )
 
-type UrlHandler struct {
-	service *service.UrlService
+type URLHandler struct {
+	service *service.URLService
 }
 
-func NewUrlHandler(service *service.UrlService) *UrlHandler {
-	return &UrlHandler{service: service}
+func NewURLHandler(service *service.URLService) *URLHandler {
+	return &URLHandler{service: service}
 }
 
-func (h *UrlHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -46,7 +46,7 @@ func (h *UrlHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, _ := h.service.ShortenUrl(string(body))
+	url, _ := h.service.ShortenURL(string(body))
 	fullURL := fmt.Sprintf("%s://%s/%s", "http", r.Host, url)
 
 	w.Header().Set("Content-Type", "text/plain")
@@ -58,13 +58,13 @@ func (h *UrlHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *UrlHandler) ResolveUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) ResolveUrl(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 
 	id := r.PathValue("id")
-	url, _ := h.service.ResolveShortUrl(id)
+	url, _ := h.service.ResolveShortURL(id)
 
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
