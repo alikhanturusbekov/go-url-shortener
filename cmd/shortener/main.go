@@ -20,8 +20,8 @@ func run() error {
 	urlHandler := handler.NewURLHandler(urlService)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, urlHandler.ShortenUrl)
-	mux.HandleFunc(`/{id}`, urlHandler.ResolveUrl)
+	mux.HandleFunc(`/`, urlHandler.ShortenURL)
+	mux.HandleFunc(`/{id}`, urlHandler.ResolveURL)
 
 	return http.ListenAndServe(`:8080`, mux)
 }

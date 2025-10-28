@@ -18,7 +18,7 @@ func NewURLHandler(service *service.URLService) *URLHandler {
 	return &URLHandler{service: service}
 }
 
-func (h *URLHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -58,7 +58,7 @@ func (h *URLHandler) ShortenUrl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *URLHandler) ResolveUrl(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
