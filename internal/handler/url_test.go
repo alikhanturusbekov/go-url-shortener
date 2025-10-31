@@ -94,8 +94,8 @@ func TestShortenURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.requestData.method, "/", tt.requestData.body)
-			for k, v := range tt.requestData.headers {
-				request.Header.Set(k, v)
+			for name, value := range tt.requestData.headers {
+				request.Header.Set(name, value)
 			}
 
 			urlRepo := repository.NewURLMapRepository()
@@ -122,6 +122,72 @@ func TestShortenURL(t *testing.T) {
 
 				shortenedPath := strings.TrimPrefix(resultURL.Path, "/")
 				assert.Equal(t, 7, len(shortenedPath))
+			}
+		})
+	}
+}
+
+func TestResolveURL(t *testing.T) {
+	type want struct {
+		statusCode int
+		headers    map[string]string
+	}
+	tests := []struct {
+		name            string
+		targetUrl       string
+		mockUrlDatabase map[string]string
+		want            want
+	}{
+		{
+			name:      "Positive case: URL exists in Database",
+			targetUrl: "abcdefg",
+			mockUrlDatabase: map[string]string{
+				"abcdefg": "https://yandex.ru",
+			},
+			want: want{
+				statusCode: http.StatusTemporaryRedirect,
+				headers: map[string]string{
+					"Content-Type": "text/html; charset=utf-8",
+					"Location":     "https://yandex.ru",
+				},
+			},
+		},
+		{
+			name:      "Negative case: URL does not exist in Database",
+			targetUrl: "abcdefg",
+			mockUrlDatabase: map[string]string{
+				"gfedvba": "https://yandex.ru",
+			},
+			want: want{
+				statusCode: http.StatusNotFound,
+				headers:    map[string]string{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			urlRepo := repository.NewURLMapRepository()
+
+			for short, long := range tt.mockUrlDatabase {
+				err := urlRepo.Save(short, long)
+				require.NoError(t, err)
+			}
+
+			mux := http.NewServeMux()
+			urlService := service.NewURLService(urlRepo)
+			mux.HandleFunc("/{id}", NewURLHandler(urlService).ResolveURL)
+
+			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetUrl, nil)
+
+			w := httptest.NewRecorder()
+			mux.ServeHTTP(w, request)
+
+			result := w.Result()
+
+			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			for header, value := range tt.want.headers {
+				assert.Equal(t, value, result.Header.Get(header))
 			}
 		})
 	}
