@@ -134,14 +134,14 @@ func TestResolveURL(t *testing.T) {
 	}
 	tests := []struct {
 		name            string
-		targetUrl       string
-		mockUrlDatabase map[string]string
+		targetURL       string
+		mockURLDatabase map[string]string
 		want            want
 	}{
 		{
 			name:      "Positive case: URL exists in Database",
-			targetUrl: "abcdefg",
-			mockUrlDatabase: map[string]string{
+			targetURL: "abcdefg",
+			mockURLDatabase: map[string]string{
 				"abcdefg": "https://yandex.ru",
 			},
 			want: want{
@@ -154,8 +154,8 @@ func TestResolveURL(t *testing.T) {
 		},
 		{
 			name:      "Negative case: URL does not exist in Database",
-			targetUrl: "abcdefg",
-			mockUrlDatabase: map[string]string{
+			targetURL: "abcdefg",
+			mockURLDatabase: map[string]string{
 				"gfedvba": "https://yandex.ru",
 			},
 			want: want{
@@ -169,7 +169,7 @@ func TestResolveURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			urlRepo := repository.NewURLMapRepository()
 
-			for short, long := range tt.mockUrlDatabase {
+			for short, long := range tt.mockURLDatabase {
 				err := urlRepo.Save(short, long)
 				require.NoError(t, err)
 			}
@@ -178,7 +178,7 @@ func TestResolveURL(t *testing.T) {
 			urlService := service.NewURLService(urlRepo)
 			mux.HandleFunc("/{id}", NewURLHandler(urlService).ResolveURL)
 
-			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetUrl, nil)
+			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetURL, nil)
 
 			w := httptest.NewRecorder()
 			mux.ServeHTTP(w, request)
