@@ -67,7 +67,12 @@ func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	url, _ := h.service.ResolveShortURL(id)
+
+	url, err := h.service.ResolveShortURL(id)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
