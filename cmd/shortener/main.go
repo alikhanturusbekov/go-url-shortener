@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
@@ -19,9 +21,12 @@ func run() error {
 	urlService := service.NewURLService(urlRepo)
 	urlHandler := handler.NewURLHandler(urlService)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, urlHandler.ShortenURL)
-	mux.HandleFunc(`/{id}`, urlHandler.ResolveURL)
+	r := chi.NewRouter()
 
-	return http.ListenAndServe(`:8080`, mux)
+	r.Use(middleware.AllowContentType("text/plain"))
+
+	r.Post(`/`, urlHandler.ShortenURL)
+	r.Get(`/{id}`, urlHandler.ResolveURL)
+
+	return http.ListenAndServe(`:8080`, r)
 }
