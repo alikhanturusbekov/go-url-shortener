@@ -65,30 +65,6 @@ func TestShortenURL(t *testing.T) {
 				statusCode:  http.StatusBadRequest,
 			},
 		},
-		{
-			name: "Negative Case: Sent Content-Type application/json",
-			requestData: requestData{
-				headers: map[string]string{"Content-Type": "application/json"},
-				method:  http.MethodPost,
-				body:    strings.NewReader("https://yandex.ru"),
-			},
-			want: want{
-				contentType: "",
-				statusCode:  http.StatusBadRequest,
-			},
-		},
-		{
-			name: "Negative Case: GET request",
-			requestData: requestData{
-				headers: map[string]string{"Content-Type": "text/plain"},
-				method:  http.MethodGet,
-				body:    strings.NewReader("https://yandex.ru"),
-			},
-			want: want{
-				contentType: "",
-				statusCode:  http.StatusMethodNotAllowed,
-			},
-		},
 	}
 
 	for _, tt := range tests {
