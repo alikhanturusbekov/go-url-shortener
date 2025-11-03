@@ -1,18 +1,34 @@
 package handler
 
 import (
-	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 )
+
+var testConfig *config.Config
+
+func TestMain(m *testing.M) {
+	testConfig = &config.Config{
+		Address: "localhost:9999",
+		BaseURL: "http://localhost:9999",
+	}
+
+	code := m.Run()
+
+	os.Exit(code)
+}
 
 func TestShortenURL(t *testing.T) {
 	type requestData struct {
@@ -75,7 +91,7 @@ func TestShortenURL(t *testing.T) {
 			}
 
 			urlRepo := repository.NewURLMapRepository()
-			urlService := service.NewURLService(urlRepo)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
 			h := NewURLHandler(urlService).ShortenURL
 			w := httptest.NewRecorder()
 			h(w, request)
@@ -151,7 +167,7 @@ func TestResolveURL(t *testing.T) {
 			}
 
 			mux := http.NewServeMux()
-			urlService := service.NewURLService(urlRepo)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
 			mux.HandleFunc("/{id}", NewURLHandler(urlService).ResolveURL)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetURL, nil)
