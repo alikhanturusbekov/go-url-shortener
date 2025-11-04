@@ -1,12 +1,10 @@
 package handler
 
 import (
+	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 	"io"
 	"log"
 	"net/http"
-	"strings"
-
-	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 )
 
 type URLHandler struct {
@@ -30,12 +28,6 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 			log.Printf("failed to close request body read: %s", err)
 		}
 	}(r.Body)
-
-	original := strings.TrimSpace(string(body))
-	if original == "" {
-		http.Error(w, "empty URL", http.StatusBadRequest)
-		return
-	}
 
 	url, _ := h.service.ShortenURL(string(body))
 
