@@ -32,9 +32,8 @@ func run() error {
 
 	r := chi.NewRouter()
 
-	r.Use(middleware.AllowContentType("text/plain"))
-
-	r.Post(`/`, urlHandler.ShortenURL)
+	r.With(middleware.AllowContentType("text/plain")).
+		Post(`/`, urlHandler.ShortenURL)
 	r.Get(`/{id}`, urlHandler.ResolveURL)
 
 	return http.ListenAndServe(appConfig.Address, r)
