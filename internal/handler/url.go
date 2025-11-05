@@ -31,7 +31,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	url, appError := h.service.ShortenURL(string(body))
 	if appError != nil {
-		http.Error(w, appError.Message, appError.Code)
+		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 
 	url, appError := h.service.ResolveShortURL(id)
 	if appError != nil {
-		http.Error(w, appError.Message, appError.Code)
+		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
 	}
 

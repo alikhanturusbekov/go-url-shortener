@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -27,17 +28,17 @@ func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
 // ShortenURL Хэширует url и возвращает первые 7 символов
 // Есть вероятность, что будут одинаковые 7 символов у разных url, но так как проект маленький - закрыл глаза)
 func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
-	validatedURL, isValid := s.validateURL(url)
-	if !isValid {
-		return "", appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided")
+	validatedURL, err := s.validateURL(url)
+	if err != nil {
+		return "", appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided", err)
 	}
 
 	hash := sha1.Sum([]byte(validatedURL))
 	urlPath := base64.URLEncoding.EncodeToString(hash[:])[:7]
 
-	err := s.repo.Save(urlPath, url)
+	err = s.repo.Save(urlPath, url)
 	if err != nil {
-		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL")
+		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 	}
 
 	shortURL := fmt.Sprintf("%s/%s", s.baseURL, urlPath)
@@ -52,23 +53,27 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 		return originalURL, nil
 	}
 
-	return "", appError.NewHTTPError(http.StatusNotFound, "Could not resolve provided URL")
+	return "", appError.NewHTTPError(
+		http.StatusNotFound,
+		"Could not resolve provided URL",
+		errors.New("url not found"),
+	)
 }
 
-func (s *URLService) validateURL(originalURL string) (string, bool) {
+func (s *URLService) validateURL(originalURL string) (string, error) {
 	trimmedURL := strings.TrimSpace(originalURL)
 	if trimmedURL == "" {
-		return "", false
+		return "", errors.New("couldn't parse URL")
 	}
 
 	resultURL, err := url.ParseRequestURI(trimmedURL)
 	if err != nil {
-		return "", false
+		return "", err
 	}
 
 	if resultURL.Scheme == "" || resultURL.Host == "" {
-		return "", false
+		return "", errors.New("url's scheme or host is empty")
 	}
 
-	return resultURL.String(), true
+	return resultURL.String(), nil
 }
