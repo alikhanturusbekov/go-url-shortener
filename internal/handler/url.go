@@ -29,7 +29,11 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	url, _ := h.service.ShortenURL(string(body))
+	url, appError := h.service.ShortenURL(string(body))
+	if appError != nil {
+		http.Error(w, appError.Message, appError.Code)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
@@ -43,9 +47,9 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	url, err := h.service.ResolveShortURL(id)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+	url, appError := h.service.ResolveShortURL(id)
+	if appError != nil {
+		http.Error(w, appError.Message, appError.Code)
 		return
 	}
 

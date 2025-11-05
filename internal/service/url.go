@@ -3,12 +3,13 @@ package service
 import (
 	"crypto/sha1"
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
+	appError "github.com/alikhanturusbekov/go-url-shortener/pkg/error"
 )
 
 type URLService struct {
@@ -25,10 +26,10 @@ func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
 
 // ShortenURL Хэширует url и возвращает первые 7 символов
 // Есть вероятность, что будут одинаковые 7 символов у разных url, но так как проект маленький - закрыл глаза)
-func (s *URLService) ShortenURL(url string) (string, error) {
-	validatedURL, isValid := validateURL(url)
+func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
+	validatedURL, isValid := s.validateURL(url)
 	if !isValid {
-		return "", errors.New("invalid URL")
+		return "", appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided")
 	}
 
 	hash := sha1.Sum([]byte(validatedURL))
@@ -36,7 +37,7 @@ func (s *URLService) ShortenURL(url string) (string, error) {
 
 	err := s.repo.Save(urlPath, url)
 	if err != nil {
-		return "", err
+		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL")
 	}
 
 	shortURL := fmt.Sprintf("%s/%s", s.baseURL, urlPath)
@@ -44,17 +45,17 @@ func (s *URLService) ShortenURL(url string) (string, error) {
 	return shortURL, nil
 }
 
-func (s *URLService) ResolveShortURL(shortURL string) (string, error) {
-	url, isFound := s.repo.GetByShort(shortURL)
+func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPError) {
+	originalURL, isFound := s.repo.GetByShort(shortURL)
 
 	if isFound {
-		return url, nil
+		return originalURL, nil
 	}
 
-	return "", errors.New("could not resolve provided url")
+	return "", appError.NewHTTPError(http.StatusNotFound, "Could not resolve provided URL")
 }
 
-func validateURL(originalURL string) (string, bool) {
+func (s *URLService) validateURL(originalURL string) (string, bool) {
 	trimmedURL := strings.TrimSpace(originalURL)
 	if trimmedURL == "" {
 		return "", false

@@ -58,15 +58,15 @@ func TestShortenURL(t *testing.T) {
 			},
 		},
 		{
-			name: "Positive case: URL without scheme",
+			name: "Negative case: URL without scheme",
 			requestData: requestData{
 				headers: map[string]string{"Content-Type": "text/plain"},
 				method:  http.MethodPost,
 				body:    strings.NewReader("yandex.ru"),
 			},
 			want: want{
-				contentType: "text/plain",
-				statusCode:  http.StatusCreated,
+				contentType: "text/plain; charset=utf-8",
+				statusCode:  http.StatusBadRequest,
 			},
 		},
 		{
