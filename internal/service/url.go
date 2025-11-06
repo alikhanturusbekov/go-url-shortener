@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
@@ -33,8 +34,10 @@ func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 		return "", appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided", err)
 	}
 
-	hash := sha1.Sum([]byte(validatedURL))
-	urlPath := base64.URLEncoding.EncodeToString(hash[:])[:7]
+	urlPath, err := s.generateShortURLPath(validatedURL)
+	if err != nil {
+		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
+	}
 
 	err = s.repo.Save(urlPath, url)
 	if err != nil {
@@ -76,4 +79,39 @@ func (s *URLService) validateURL(originalURL string) (string, error) {
 	}
 
 	return resultURL.String(), nil
+}
+
+func (s *URLService) generateShortURLPath(originalURL string) (string, error) {
+	urlPath := s.hashURL(originalURL)
+
+	for {
+		longURL, isFound := s.repo.GetByShort(urlPath)
+
+		if !isFound || longURL == originalURL {
+			return urlPath, nil
+		}
+
+		salted, err := s.addSalt(originalURL)
+		if err != nil {
+			return "", err
+		}
+
+		originalURL = salted
+		urlPath = s.hashURL(urlPath)
+	}
+}
+
+func (s *URLService) addSalt(url string) (string, error) {
+	b := make([]byte, 4)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+
+	return url + base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func (s *URLService) hashURL(url string) string {
+	hash := sha1.Sum([]byte(url))
+	return base64.URLEncoding.EncodeToString(hash[:])[:7]
 }
