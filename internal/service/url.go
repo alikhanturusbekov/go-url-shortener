@@ -97,7 +97,7 @@ func (s *URLService) generateShortURLPath(originalURL string) (string, error) {
 		}
 
 		originalURL = salted
-		urlPath = s.hashURL(urlPath)
+		urlPath = s.hashURL(originalURL)
 	}
 }
 
@@ -108,7 +108,7 @@ func (s *URLService) addSalt(url string) (string, error) {
 		return "", err
 	}
 
-	return url + base64.RawURLEncoding.EncodeToString(b), nil
+	return url + ":" + base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 func (s *URLService) hashURL(url string) string {
