@@ -7,14 +7,16 @@ import (
 )
 
 type Config struct {
-	Address string `env:"SERVER_ADDRESS"`
-	BaseURL string `env:"BASE_URL"`
+	Address  string `env:"SERVER_ADDRESS"`
+	BaseURL  string `env:"BASE_URL"`
+	LogLevel string `env:"LOG_LEVEL"`
 }
 
 func NewConfig() *Config {
 	config := Config{
-		Address: ":8080",
-		BaseURL: "http://localhost:8080",
+		Address:  ":8080",
+		BaseURL:  "http://localhost:8080",
+		LogLevel: "info",
 	}
 
 	if err := env.Parse(&config); err != nil {
