@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 )
@@ -109,6 +113,83 @@ func TestShortenURL(t *testing.T) {
 				require.NotEmpty(t, resultBody)
 
 				resultURL, err := url.Parse(string(resultBody))
+				require.NoError(t, err)
+				assert.Equal(t, "http", resultURL.Scheme)
+
+				shortenedPath := strings.TrimPrefix(resultURL.Path, "/")
+				assert.Equal(t, 7, len(shortenedPath))
+			}
+		})
+	}
+}
+
+func TestShortenJsonURL(t *testing.T) {
+	type requestData struct {
+		headers map[string]string
+		method  string
+		body    []byte
+	}
+	type want struct {
+		contentType string
+		statusCode  int
+	}
+	tests := []struct {
+		name        string
+		requestData requestData
+		want        want
+	}{
+		{
+			name: "Positive case: URL with scheme",
+			requestData: requestData{
+				headers: map[string]string{"Content-Type": "application/json"},
+				method:  http.MethodPost,
+				body:    []byte(`{"url": "https://yandex.ru"}`),
+			},
+			want: want{
+				contentType: "application/json",
+				statusCode:  http.StatusCreated,
+			},
+		},
+		{
+			name: "Negative case: incorrect URL field",
+			requestData: requestData{
+				headers: map[string]string{"Content-Type": "application/json"},
+				method:  http.MethodPost,
+				body:    []byte(`{"incorrectURL": "https://yandex.ru"}`),
+			},
+			want: want{
+				contentType: "text/plain; charset=utf-8",
+				statusCode:  http.StatusBadRequest,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(tt.requestData.method, "/", bytes.NewReader(tt.requestData.body))
+			for name, value := range tt.requestData.headers {
+				request.Header.Set(name, value)
+			}
+
+			urlRepo := repository.NewURLMapRepository()
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+			h := NewURLHandler(urlService).ShortenJsonURL
+			w := httptest.NewRecorder()
+			h(w, request)
+
+			result := w.Result()
+
+			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
+
+			fmt.Println(result.Body)
+
+			if tt.want.statusCode == http.StatusCreated {
+				var response model.Response
+				err := json.NewDecoder(result.Body).Decode(&response)
+				require.NoError(t, err)
+
+				resultURL, err := url.Parse(response.Result)
 				require.NoError(t, err)
 				assert.Equal(t, "http", resultURL.Scheme)
 
