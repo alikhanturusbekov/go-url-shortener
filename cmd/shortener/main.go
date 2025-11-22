@@ -12,6 +12,7 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/compress"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
@@ -39,6 +40,7 @@ func run() error {
 	r := chi.NewRouter()
 
 	r.Use(logger.RequestLogger())
+	r.Use(compress.GzipCompressor())
 
 	r.Get(`/{id}`, urlHandler.ResolveURL)
 	r.With(middleware.AllowContentType("text/plain")).

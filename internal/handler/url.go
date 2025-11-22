@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
@@ -20,6 +21,7 @@ func NewURLHandler(service *service.URLService) *URLHandler {
 }
 
 func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("ISITWORKING HANDLER")
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
