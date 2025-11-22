@@ -178,6 +178,7 @@ func TestShortenJsonURL(t *testing.T) {
 			h(w, request)
 
 			result := w.Result()
+			defer result.Body.Close()
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
