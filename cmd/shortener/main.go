@@ -42,9 +42,9 @@ func run() error {
 
 	r.Get(`/{id}`, urlHandler.ResolveURL)
 	r.With(middleware.AllowContentType("text/plain")).
-		Post(`/`, urlHandler.ShortenURL)
+		Post(`/`, urlHandler.ShortenURLAsText)
 	r.With(middleware.AllowContentType("application/json")).
-		Post(`/api/shorten`, urlHandler.ShortenJsonURL)
+		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)

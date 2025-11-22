@@ -19,7 +19,7 @@ func NewURLHandler(service *service.URLService) *URLHandler {
 	return &URLHandler{service: service}
 }
 
-func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
@@ -48,7 +48,7 @@ func (h *URLHandler) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *URLHandler) ShortenJsonURL(w http.ResponseWriter, r *http.Request) {
+func (h *URLHandler) ShortenURLAsJSON(w http.ResponseWriter, r *http.Request) {
 	var req model.Request
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil {
@@ -57,7 +57,7 @@ func (h *URLHandler) ShortenJsonURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, appError := h.service.ShortenURL(req.Url)
+	url, appError := h.service.ShortenURL(req.URL)
 	if appError != nil {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return

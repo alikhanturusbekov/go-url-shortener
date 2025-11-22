@@ -96,7 +96,7 @@ func TestShortenURL(t *testing.T) {
 
 			urlRepo := repository.NewURLMapRepository()
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			h := NewURLHandler(urlService).ShortenURL
+			h := NewURLHandler(urlService).ShortenURLAsText
 			w := httptest.NewRecorder()
 			h(w, request)
 
@@ -173,7 +173,7 @@ func TestShortenJsonURL(t *testing.T) {
 
 			urlRepo := repository.NewURLMapRepository()
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			h := NewURLHandler(urlService).ShortenJsonURL
+			h := NewURLHandler(urlService).ShortenURLAsJSON
 			w := httptest.NewRecorder()
 			h(w, request)
 
