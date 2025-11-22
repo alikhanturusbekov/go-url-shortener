@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -24,12 +25,25 @@ import (
 var testConfig *config.Config
 
 func TestMain(m *testing.M) {
+	tmpDir, err := os.MkdirTemp("", "url_test")
+	if err != nil {
+		fmt.Println("Failed to create temp directory:", err)
+		os.Exit(1)
+	}
+
 	testConfig = &config.Config{
-		Address: "localhost:9999",
-		BaseURL: "http://localhost:9999",
+		Address:         "localhost:9999",
+		BaseURL:         "http://localhost:9999",
+		FileStoragePath: filepath.Join(tmpDir, "url_pairs_test.json"),
 	}
 
 	code := m.Run()
+
+	err = os.RemoveAll(tmpDir)
+	if err != nil {
+		fmt.Println("Failed to delete temp directory:", err)
+		os.Exit(1)
+	}
 
 	os.Exit(code)
 }
@@ -94,7 +108,8 @@ func TestShortenURLAsText(t *testing.T) {
 				request.Header.Set(name, value)
 			}
 
-			urlRepo := repository.NewURLMapRepository()
+			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
+			require.NoError(t, err)
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
 			h := NewURLHandler(urlService).ShortenURLAsText
 			w := httptest.NewRecorder()
@@ -171,7 +186,8 @@ func TestShortenURLAsJSON(t *testing.T) {
 				request.Header.Set(name, value)
 			}
 
-			urlRepo := repository.NewURLMapRepository()
+			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
+			require.NoError(t, err)
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
 			h := NewURLHandler(urlService).ShortenURLAsJSON
 			w := httptest.NewRecorder()
@@ -209,14 +225,17 @@ func TestResolveURL(t *testing.T) {
 	tests := []struct {
 		name            string
 		targetURL       string
-		mockURLDatabase map[string]string
+		mockURLDatabase []model.URLPair
 		want            want
 	}{
 		{
 			name:      "Positive case: URL exists in Database",
 			targetURL: "abcdefg",
-			mockURLDatabase: map[string]string{
-				"abcdefg": "https://yandex.ru",
+			mockURLDatabase: []model.URLPair{
+				{
+					Short: "abcdefg",
+					Long:  "https://yandex.ru",
+				},
 			},
 			want: want{
 				statusCode: http.StatusTemporaryRedirect,
@@ -229,8 +248,11 @@ func TestResolveURL(t *testing.T) {
 		{
 			name:      "Negative case: URL does not exist in Database",
 			targetURL: "abcdefg",
-			mockURLDatabase: map[string]string{
-				"gfedvba": "https://yandex.ru",
+			mockURLDatabase: []model.URLPair{
+				{
+					Short: "gfedvba",
+					Long:  "https://yandex.ru",
+				},
 			},
 			want: want{
 				statusCode: http.StatusNotFound,
@@ -241,10 +263,11 @@ func TestResolveURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			urlRepo := repository.NewURLMapRepository()
+			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
+			require.NoError(t, err)
 
-			for short, long := range tt.mockURLDatabase {
-				err := urlRepo.Save(short, long)
+			for _, urlPair := range tt.mockURLDatabase {
+				err := urlRepo.Save(urlPair)
 				require.NoError(t, err)
 			}
 
@@ -266,4 +289,18 @@ func TestResolveURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setupURLFileRepository(filePath string) (*repository.URLFileRepository, error) {
+	err := os.WriteFile(filePath, []byte(""), 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	urlRepo, err := repository.NewURLFileRepository(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return urlRepo, nil
 }

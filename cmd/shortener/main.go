@@ -33,7 +33,10 @@ func run() error {
 		return err
 	}
 
-	urlRepo := repository.NewURLMapRepository()
+	urlRepo, err := repository.NewURLFileRepository(appConfig.FileStoragePath)
+	if err != nil {
+		return err
+	}
 	urlService := service.NewURLService(urlRepo, appConfig.BaseURL)
 	urlHandler := handler.NewURLHandler(urlService)
 

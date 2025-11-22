@@ -7,3 +7,8 @@ type Request struct {
 type Response struct {
 	Result string `json:"result"`
 }
+
+type URLPair struct {
+	Short string `json:"short"`
+	Long  string `json:"long"`
+}
