@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestShortenURL(t *testing.T) {
+func TestShortenURLAsText(t *testing.T) {
 	type requestData struct {
 		headers map[string]string
 		method  string
@@ -123,7 +123,7 @@ func TestShortenURL(t *testing.T) {
 	}
 }
 
-func TestShortenJsonURL(t *testing.T) {
+func TestShortenURLAsJSON(t *testing.T) {
 	type requestData struct {
 		headers map[string]string
 		method  string
