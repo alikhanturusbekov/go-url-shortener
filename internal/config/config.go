@@ -18,7 +18,7 @@ func NewConfig() *Config {
 		Address:         ":8080",
 		BaseURL:         "http://localhost:8080",
 		LogLevel:        "info",
-		FileStoragePath: "./data/url_pairs.json",
+		FileStoragePath: "./url_pairs.json",
 	}
 
 	if err := env.Parse(&config); err != nil {
