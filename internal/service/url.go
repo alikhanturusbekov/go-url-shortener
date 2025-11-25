@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,9 +40,11 @@ func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 	}
 
-	err = s.repo.Save(urlPath, url)
-	if err != nil {
-		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
+	if _, isFound := s.repo.GetByShort(urlPath); !isFound {
+		err = s.repo.Save(model.URLPair{Short: urlPath, Long: validatedURL})
+		if err != nil {
+			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
+		}
 	}
 
 	shortURL := fmt.Sprintf("%s/%s", s.baseURL, urlPath)
@@ -50,10 +53,10 @@ func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 }
 
 func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPError) {
-	originalURL, isFound := s.repo.GetByShort(shortURL)
+	urlPair, isFound := s.repo.GetByShort(shortURL)
 
 	if isFound {
-		return originalURL, nil
+		return urlPair.Long, nil
 	}
 
 	return "", appError.NewHTTPError(
@@ -85,9 +88,9 @@ func (s *URLService) generateShortURLPath(originalURL string) (string, error) {
 	urlPath := s.hashURL(originalURL)
 
 	for {
-		longURL, isFound := s.repo.GetByShort(urlPath)
+		urlPair, isFound := s.repo.GetByShort(urlPath)
 
-		if !isFound || longURL == originalURL {
+		if !isFound || urlPair.Long == originalURL {
 			return urlPath, nil
 		}
 
