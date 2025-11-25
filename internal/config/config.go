@@ -27,7 +27,7 @@ func NewConfig() *Config {
 
 	flag.StringVar(&config.Address, "a", config.Address, "HTTP server start address")
 	flag.StringVar(&config.BaseURL, "b", config.BaseURL, "The base URL of shortened url")
-	flag.StringVar(&config.BaseURL, "f", config.BaseURL, "The file path for url pairs storage")
+	flag.StringVar(&config.FileStoragePath, "f", config.FileStoragePath, "The file path for url pairs storage")
 	flag.Parse()
 
 	return &config
