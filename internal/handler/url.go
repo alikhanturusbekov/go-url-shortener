@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
@@ -9,14 +11,31 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 type URLHandler struct {
-	service *service.URLService
+	service  *service.URLService
+	database *sql.DB
 }
 
-func NewURLHandler(service *service.URLService) *URLHandler {
-	return &URLHandler{service: service}
+func NewURLHandler(service *service.URLService, database *sql.DB) *URLHandler {
+	return &URLHandler{
+		service:  service,
+		database: database,
+	}
+}
+
+func (h *URLHandler) Ping(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := h.database.PingContext(ctx); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {

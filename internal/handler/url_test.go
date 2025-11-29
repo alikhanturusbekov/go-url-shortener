@@ -2,9 +2,11 @@ package handler
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,6 +26,8 @@ import (
 )
 
 var testConfig *config.Config
+
+var database *sql.DB
 
 func TestMain(m *testing.M) {
 	tmpDir, err := os.MkdirTemp("", "url_test")
@@ -35,7 +40,14 @@ func TestMain(m *testing.M) {
 		Address:         "localhost:9999",
 		BaseURL:         "http://localhost:9999",
 		FileStoragePath: filepath.Join(tmpDir, "url_pairs_test.json"),
+		DatabaseDSN:     "postgres://username:password@localhost:5432/shortened_urls",
 	}
+
+	database, err := sql.Open("pgx", testConfig.DatabaseDSN)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer database.Close()
 
 	code := m.Run()
 
@@ -111,7 +123,7 @@ func TestShortenURLAsText(t *testing.T) {
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			h := NewURLHandler(urlService).ShortenURLAsText
+			h := NewURLHandler(urlService, database).ShortenURLAsText
 			w := httptest.NewRecorder()
 			h(w, request)
 
@@ -189,7 +201,7 @@ func TestShortenURLAsJSON(t *testing.T) {
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			h := NewURLHandler(urlService).ShortenURLAsJSON
+			h := NewURLHandler(urlService, database).ShortenURLAsJSON
 			w := httptest.NewRecorder()
 			h(w, request)
 
@@ -273,7 +285,7 @@ func TestResolveURL(t *testing.T) {
 
 			mux := http.NewServeMux()
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			mux.HandleFunc("/{id}", NewURLHandler(urlService).ResolveURL)
+			mux.HandleFunc("/{id}", NewURLHandler(urlService, database).ResolveURL)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetURL, nil)
 

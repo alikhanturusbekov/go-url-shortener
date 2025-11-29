@@ -1,8 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"log"
 	"net/http"
@@ -33,18 +35,25 @@ func run() error {
 		return err
 	}
 
+	database, err := sql.Open("pgx", appConfig.DatabaseDSN)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer database.Close()
+
 	urlRepo, err := repository.NewURLFileRepository(appConfig.FileStoragePath)
 	if err != nil {
 		return err
 	}
 	urlService := service.NewURLService(urlRepo, appConfig.BaseURL)
-	urlHandler := handler.NewURLHandler(urlService)
+	urlHandler := handler.NewURLHandler(urlService, database)
 
 	r := chi.NewRouter()
 
 	r.Use(logger.RequestLogger())
 	r.Use(compress.GzipCompressor())
 
+	r.Get("/ping", urlHandler.Ping)
 	r.Get(`/{id}`, urlHandler.ResolveURL)
 	r.With(middleware.AllowContentType("text/plain")).
 		Post(`/`, urlHandler.ShortenURLAsText)
