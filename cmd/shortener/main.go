@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
@@ -40,6 +42,12 @@ func run() error {
 		log.Fatalf("Failed to open database: %v", err)
 	}
 	defer database.Close()
+
+	if appConfig.DatabaseDSN != "" {
+		if err := applyMigrations(database, "migrations"); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	urlRepo, cleanUp, err := setupRepository(appConfig)
 	if err != nil {
@@ -92,4 +100,51 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 	log.Print("Using the in-memory repository...")
 
 	return repository.NewURLInMemoryRepository(), func() {}, nil
+}
+
+func applyMigrations(db *sql.DB, dir string) error {
+	_, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version VARCHAR(255) PRIMARY KEY
+        );
+    `)
+	if err != nil {
+		return fmt.Errorf("failed to create schema_migrations table: %w", err)
+	}
+
+	files, err := filepath.Glob(filepath.Join(dir, "*.up.sql"))
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		version := filepath.Base(file)
+
+		var exists string
+		err := db.QueryRow("SELECT version FROM schema_migrations WHERE version=$1", version).Scan(&exists)
+		if err == nil {
+			continue
+		} else if err != sql.ErrNoRows {
+			return fmt.Errorf("failed to check migration %s: %w", version, err)
+		}
+
+		sqlBytes, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", file, err)
+		}
+
+		_, err = db.Exec(string(sqlBytes))
+		if err != nil {
+			return fmt.Errorf("failed to apply migration %s: %w", file, err)
+		}
+
+		_, err = db.Exec("INSERT INTO schema_migrations(version) VALUES ($1)", version)
+		if err != nil {
+			return fmt.Errorf("failed to record applied migration %s: %w", version, err)
+		}
+
+		log.Println("Applied migration:", version)
+	}
+
+	return nil
 }
