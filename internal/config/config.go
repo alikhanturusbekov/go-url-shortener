@@ -19,8 +19,8 @@ func NewConfig() *Config {
 		Address:         ":8080",
 		BaseURL:         "http://localhost:8080",
 		LogLevel:        "info",
-		FileStoragePath: "./url_pairs.json",
-		DatabaseDSN:     "postgres://username:password@localhost:5432/shortened_urls",
+		FileStoragePath: "",
+		DatabaseDSN:     "",
 	}
 
 	if err := env.Parse(&config); err != nil {

@@ -8,14 +8,9 @@ import (
 	"sync"
 )
 
-type URLRepository interface {
-	Save(url model.URLPair) error
-	GetByShort(short string) (model.URLPair, bool)
-}
-
 type URLFileRepository struct {
 	filePath string
-	data     map[string]model.URLPair // key is Short
+	data     map[string]model.URLPair
 	mu       sync.RWMutex
 }
 
@@ -34,12 +29,10 @@ func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	return repo, nil
 }
 
-// Save appends a ShortLink to the JSON array in the file
 func (r *URLFileRepository) Save(urlPair model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Update in-memory map
 	r.data[urlPair.Short] = urlPair
 
 	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDWR, 0644)
