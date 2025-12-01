@@ -41,10 +41,12 @@ func run() error {
 	}
 	defer database.Close()
 
-	urlRepo, err := repository.NewURLFileRepository(appConfig.FileStoragePath)
+	urlRepo, cleanUp, err := setupRepository(appConfig)
 	if err != nil {
 		return err
 	}
+	defer cleanUp()
+
 	urlService := service.NewURLService(urlRepo, appConfig.BaseURL)
 	urlHandler := handler.NewURLHandler(urlService, database)
 
@@ -62,4 +64,32 @@ func run() error {
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)
+}
+
+func setupRepository(config *config.Config) (repository.URLRepository, func(), error) {
+	if config.DatabaseDSN != "" {
+		log.Print("Using the database for storage...")
+
+		database, err := sql.Open("pgx", config.DatabaseDSN)
+		if err != nil {
+			log.Fatalf("Failed to open database: %v", err)
+		}
+
+		databaseRepo := repository.NewURLDatabaseRepository(database)
+		cleanup := func() { databaseRepo.Close() }
+
+		return databaseRepo, cleanup, nil
+	}
+
+	if config.FileStoragePath != "" {
+		log.Print("Using the file system for storage...")
+
+		fileRepo, err := repository.NewURLFileRepository(config.FileStoragePath)
+
+		return fileRepo, func() {}, err
+	}
+
+	log.Print("Using the in-memory repository...")
+
+	return repository.NewURLInMemoryRepository(), func() {}, nil
 }

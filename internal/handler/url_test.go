@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 		Address:         "localhost:9999",
 		BaseURL:         "http://localhost:9999",
 		FileStoragePath: filepath.Join(tmpDir, "url_pairs_test.json"),
-		DatabaseDSN:     "postgres://username:password@localhost:5432/shortened_urls",
+		DatabaseDSN:     "postgres://username:password@localhost:5432/postgres",
 	}
 
 	database, err := sql.Open("pgx", testConfig.DatabaseDSN)
