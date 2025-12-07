@@ -11,6 +11,7 @@ type Config struct {
 	BaseURL         string `env:"BASE_URL"`
 	LogLevel        string `env:"LOG_LEVEL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
 }
 
 func NewConfig() *Config {
@@ -18,7 +19,8 @@ func NewConfig() *Config {
 		Address:         ":8080",
 		BaseURL:         "http://localhost:8080",
 		LogLevel:        "info",
-		FileStoragePath: "./url_pairs.json",
+		FileStoragePath: "",
+		DatabaseDSN:     "",
 	}
 
 	if err := env.Parse(&config); err != nil {
@@ -28,6 +30,7 @@ func NewConfig() *Config {
 	flag.StringVar(&config.Address, "a", config.Address, "HTTP server start address")
 	flag.StringVar(&config.BaseURL, "b", config.BaseURL, "The base URL of shortened url")
 	flag.StringVar(&config.FileStoragePath, "f", config.FileStoragePath, "The file path for url pairs storage")
+	flag.StringVar(&config.DatabaseDSN, "d", config.DatabaseDSN, "Database connection string")
 	flag.Parse()
 
 	return &config

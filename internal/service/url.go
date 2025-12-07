@@ -28,7 +28,6 @@ func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
 }
 
 // ShortenURL Хэширует url и возвращает первые 7 символов
-// Есть вероятность, что будут одинаковые 7 символов у разных url, но так как проект маленький - закрыл глаза)
 func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 	validatedURL, err := s.validateURL(url)
 	if err != nil {
@@ -40,16 +39,50 @@ func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 	}
 
-	if _, isFound := s.repo.GetByShort(urlPath); !isFound {
-		err = s.repo.Save(model.URLPair{Short: urlPath, Long: validatedURL})
-		if err != nil {
+	_, isFound := s.repo.GetByShort(urlPath)
+	if !isFound {
+		err = s.repo.Save(model.NewURLPair(urlPath, validatedURL, nil))
+		if err != nil && !errors.Is(err, repository.ErrorOnConflict) {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}
 	}
 
 	shortURL := fmt.Sprintf("%s/%s", s.baseURL, urlPath)
 
+	if isFound || (err != nil && errors.Is(err, repository.ErrorOnConflict)) {
+		return shortURL, appError.NewHTTPError(http.StatusConflict, "", nil)
+	}
+
 	return shortURL, nil
+}
+
+func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest) ([]*model.BatchShortenURLResponse, *appError.HTTPError) {
+	results := make([]*model.BatchShortenURLResponse, 0, len(items))
+	urlPairs := make([]*model.URLPair, 0, len(items))
+
+	for _, item := range items {
+		validatedURL, err := s.validateURL(item.OriginalURL)
+		if err != nil {
+			return nil, appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided", err)
+		}
+
+		urlPath, err := s.generateShortURLPath(validatedURL)
+		if err != nil {
+			return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
+		}
+
+		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID))
+		results = append(results, &model.BatchShortenURLResponse{
+			CorrelationID: item.CorrelationID,
+			ShortURL:      fmt.Sprintf("%s/%s", s.baseURL, urlPath),
+		})
+	}
+
+	if err := s.repo.SaveMany(urlPairs); err != nil {
+		return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to batch save URL pairs", err)
+	}
+
+	return results, nil
 }
 
 func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPError) {
