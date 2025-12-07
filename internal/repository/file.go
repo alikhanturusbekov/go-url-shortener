@@ -10,14 +10,14 @@ import (
 
 type URLFileRepository struct {
 	filePath string
-	data     map[string]model.URLPair
+	data     map[string]*model.URLPair
 	mu       sync.RWMutex
 }
 
 func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	repo := &URLFileRepository{
 		filePath: filePath,
-		data:     make(map[string]model.URLPair),
+		data:     make(map[string]*model.URLPair),
 	}
 
 	if _, err := os.Stat(filePath); err == nil {
@@ -29,7 +29,7 @@ func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	return repo, nil
 }
 
-func (r *URLFileRepository) Save(urlPair model.URLPair) error {
+func (r *URLFileRepository) Save(urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -59,7 +59,7 @@ func (r *URLFileRepository) Save(urlPair model.URLPair) error {
 	return nil
 }
 
-func (r *URLFileRepository) GetByShort(short string) (model.URLPair, bool) {
+func (r *URLFileRepository) GetByShort(short string) (*model.URLPair, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	urlPair, ok := r.data[short]
@@ -73,7 +73,7 @@ func (r *URLFileRepository) load() error {
 	}
 	defer file.Close()
 
-	var urlPairs []model.URLPair
+	var urlPairs []*model.URLPair
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&urlPairs); err != nil {
 		return nil

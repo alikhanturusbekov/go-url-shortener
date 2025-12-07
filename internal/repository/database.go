@@ -14,17 +14,17 @@ func NewURLDatabaseRepository(db *sql.DB) *URLDatabaseRepository {
 	return &URLDatabaseRepository{db: db}
 }
 
-func (r *URLDatabaseRepository) Save(urlPair model.URLPair) error {
+func (r *URLDatabaseRepository) Save(urlPair *model.URLPair) error {
 	query := `
-        INSERT INTO url_pairs (short, long)
-        VALUES ($1, $2)
+        INSERT INTO url_pairs (uid, short, long)
+        VALUES ($1, $2, $3)
         ON CONFLICT (short) DO UPDATE SET long = EXCLUDED.long;
     `
-	_, err := r.db.Exec(query, urlPair.Short, urlPair.Long)
+	_, err := r.db.Exec(query, urlPair.ID, urlPair.Short, urlPair.Long)
 	return err
 }
 
-func (r *URLDatabaseRepository) GetByShort(short string) (model.URLPair, bool) {
+func (r *URLDatabaseRepository) GetByShort(short string) (*model.URLPair, bool) {
 	var result model.URLPair
 
 	query := `
@@ -36,10 +36,10 @@ func (r *URLDatabaseRepository) GetByShort(short string) (model.URLPair, bool) {
 	err := r.db.QueryRow(query, short).Scan(&result.Short, &result.Long)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return model.URLPair{}, false
+		return nil, false
 	}
 
-	return result, err == nil
+	return &result, err == nil
 }
 
 func (r *URLDatabaseRepository) Close() error {

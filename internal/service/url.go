@@ -41,7 +41,7 @@ func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 	}
 
 	if _, isFound := s.repo.GetByShort(urlPath); !isFound {
-		err = s.repo.Save(model.URLPair{Short: urlPath, Long: validatedURL})
+		err = s.repo.Save(model.NewURLPair(urlPath, validatedURL, nil))
 		if err != nil {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}

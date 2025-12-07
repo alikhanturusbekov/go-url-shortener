@@ -237,13 +237,13 @@ func TestResolveURL(t *testing.T) {
 	tests := []struct {
 		name            string
 		targetURL       string
-		mockURLDatabase []model.URLPair
+		mockURLDatabase []*model.URLPair
 		want            want
 	}{
 		{
 			name:      "Positive case: URL exists in Database",
 			targetURL: "abcdefg",
-			mockURLDatabase: []model.URLPair{
+			mockURLDatabase: []*model.URLPair{
 				{
 					Short: "abcdefg",
 					Long:  "https://yandex.ru",
@@ -260,7 +260,7 @@ func TestResolveURL(t *testing.T) {
 		{
 			name:      "Negative case: URL does not exist in Database",
 			targetURL: "abcdefg",
-			mockURLDatabase: []model.URLPair{
+			mockURLDatabase: []*model.URLPair{
 				{
 					Short: "gfedvba",
 					Long:  "https://yandex.ru",
