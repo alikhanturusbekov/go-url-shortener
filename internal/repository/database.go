@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type URLDatabaseRepository struct {
@@ -18,9 +20,21 @@ func (r *URLDatabaseRepository) Save(urlPair *model.URLPair) error {
 	query := `
         INSERT INTO url_pairs (uid, short, long)
         VALUES ($1, $2, $3)
-        ON CONFLICT (short) DO UPDATE SET long = EXCLUDED.long;
     `
 	_, err := r.db.Exec(query, urlPair.ID, urlPair.Short, urlPair.Long)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+
+		if ok := errors.As(err, &pgErr); !ok {
+			return err
+		}
+
+		if pgErr.Code == pgerrcode.UniqueViolation {
+			return ErrorOnConflict
+		}
+	}
+
 	return err
 }
 

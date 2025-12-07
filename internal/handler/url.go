@@ -53,13 +53,17 @@ func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
 	}(r.Body)
 
 	url, appError := h.service.ShortenURL(string(body))
-	if appError != nil {
+	if appError != nil && url == "" {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	if appError != nil {
+		w.WriteHeader(appError.Code)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 
 	_, err = w.Write([]byte(url))
 	if err != nil {
@@ -77,13 +81,17 @@ func (h *URLHandler) ShortenURLAsJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url, appError := h.service.ShortenURL(req.URL)
-	if appError != nil {
+	if appError != nil && url == "" {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	if appError != nil {
+		w.WriteHeader(appError.Code)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 
 	resp := model.Response{Result: url}
 
