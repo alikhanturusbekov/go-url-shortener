@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
@@ -211,8 +212,6 @@ func TestShortenURLAsJSON(t *testing.T) {
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
 
-			fmt.Println(result.Body)
-
 			if tt.want.statusCode == http.StatusCreated {
 				var response model.Response
 				err := json.NewDecoder(result.Body).Decode(&response)
@@ -303,6 +302,79 @@ func TestResolveURL(t *testing.T) {
 	}
 }
 
+func TestBatchShortenURL(t *testing.T) {
+	type requestData struct {
+		headers map[string]string
+		method  string
+		body    []model.BatchShortenURLRequest
+	}
+	type want struct {
+		contentType string
+		statusCode  int
+		body        []model.BatchShortenURLResponse
+	}
+	tests := []struct {
+		name        string
+		requestData requestData
+		want        want
+	}{
+		{
+			name: "Positive case: ",
+			requestData: requestData{
+				headers: map[string]string{"Content-Type": "application/json"},
+				method:  http.MethodPost,
+				body: []model.BatchShortenURLRequest{
+					{
+						CorrelationID: pointer(uuid.NewString()),
+						OriginalURL:   "https://practicum.yandex.ru",
+					},
+					{
+						CorrelationID: pointer(uuid.NewString()),
+						OriginalURL:   "https://yandex.ru",
+					},
+				},
+			},
+			want: want{
+				contentType: "application/json",
+				statusCode:  http.StatusCreated,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, err := json.Marshal(tt.requestData.body)
+			require.NoError(t, err)
+			request := httptest.NewRequest(tt.requestData.method, "/", bytes.NewReader(bodyBytes))
+			for name, value := range tt.requestData.headers {
+				request.Header.Set(name, value)
+			}
+
+			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
+			require.NoError(t, err)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+			h := NewURLHandler(urlService, database).BatchShortenURL
+			w := httptest.NewRecorder()
+			h(w, request)
+
+			result := w.Result()
+			defer result.Body.Close()
+
+			var responseData []model.BatchShortenURLResponse
+			err = json.Unmarshal(bodyBytes, &responseData)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
+			assert.Equal(t, len(tt.requestData.body), len(responseData))
+
+			for i := range tt.requestData.body {
+				assert.Equal(t, tt.requestData.body[i].CorrelationID, responseData[i].CorrelationID)
+			}
+		})
+	}
+}
+
 func setupURLFileRepository(filePath string) (*repository.URLFileRepository, error) {
 	err := os.WriteFile(filePath, []byte(""), 0644)
 	if err != nil {
@@ -316,3 +388,5 @@ func setupURLFileRepository(filePath string) (*repository.URLFileRepository, err
 
 	return urlRepo, nil
 }
+
+func pointer(s string) *string { return &s }

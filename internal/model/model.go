@@ -13,9 +13,19 @@ type Response struct {
 }
 
 type URLPair struct {
-	ID    string `json:"id"`
+	ID    string `json:"uid"`
 	Short string `json:"short"`
 	Long  string `json:"long"`
+}
+
+type BatchShortenURLRequest struct {
+	CorrelationID *string `json:"correlation_id"`
+	OriginalURL   string  `json:"original_url"`
+}
+
+type BatchShortenURLResponse struct {
+	CorrelationID *string `json:"correlation_id"`
+	ShortURL      string  `json:"short_url"`
 }
 
 func NewURLPair(short, long string, id *string) *URLPair {

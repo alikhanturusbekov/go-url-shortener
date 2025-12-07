@@ -33,8 +33,6 @@ func (r *URLFileRepository) Save(urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.data[urlPair.Short] = urlPair
-
 	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
@@ -56,6 +54,8 @@ func (r *URLFileRepository) Save(urlPair *model.URLPair) error {
 		return err
 	}
 
+	r.data[urlPair.Short] = urlPair
+
 	return nil
 }
 
@@ -64,6 +64,39 @@ func (r *URLFileRepository) GetByShort(short string) (*model.URLPair, bool) {
 	defer r.mu.Unlock()
 	urlPair, ok := r.data[short]
 	return urlPair, ok
+}
+
+func (r *URLFileRepository) SaveMany(urlPairs []*model.URLPair) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	file, err := os.OpenFile(r.filePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	isFirstRecord := stat.Size() == 0
+
+	for _, urlPair := range urlPairs {
+		urlJSON, err := json.Marshal(urlPair)
+		if err != nil {
+			return err
+		}
+
+		if err := r.addRecord(file, urlJSON, isFirstRecord); err != nil {
+			return err
+		}
+
+		isFirstRecord = false
+	}
+
+	return nil
 }
 
 func (r *URLFileRepository) load() error {

@@ -5,6 +5,7 @@ import (
 )
 
 type URLRepository interface {
-	Save(url *model.URLPair) error
+	Save(urlPair *model.URLPair) error
 	GetByShort(short string) (*model.URLPair, bool)
+	SaveMany(urlPairs []*model.URLPair) error
 }

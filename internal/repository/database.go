@@ -42,6 +42,29 @@ func (r *URLDatabaseRepository) GetByShort(short string) (*model.URLPair, bool) 
 	return &result, err == nil
 }
 
+func (r *URLDatabaseRepository) SaveMany(urlPairs []*model.URLPair) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	stmt, err := tx.Prepare("INSERT INTO url_pairs (uid, short, long) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, urlPair := range urlPairs {
+		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long)
+		if fail != nil {
+			return fail
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (r *URLDatabaseRepository) Close() error {
 	return r.db.Close()
 }

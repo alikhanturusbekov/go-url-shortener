@@ -27,3 +27,14 @@ func (r *URLInMemoryRepository) GetByShort(short string) (*model.URLPair, bool) 
 	urlPair, ok := r.data[short]
 	return urlPair, ok
 }
+
+func (r *URLInMemoryRepository) SaveMany(urlPairs []*model.URLPair) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, urlPair := range urlPairs {
+		r.data[urlPair.Short] = urlPair
+	}
+
+	return nil
+}
