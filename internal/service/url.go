@@ -39,14 +39,19 @@ func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
 		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 	}
 
-	if _, isFound := s.repo.GetByShort(urlPath); !isFound {
+	_, isFound := s.repo.GetByShort(urlPath)
+	if !isFound {
 		err = s.repo.Save(model.NewURLPair(urlPath, validatedURL, nil))
-		if err != nil {
+		if err != nil && !errors.Is(err, repository.ErrorOnConflict) {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}
 	}
 
 	shortURL := fmt.Sprintf("%s/%s", s.baseURL, urlPath)
+
+	if isFound || (err != nil && errors.Is(err, repository.ErrorOnConflict)) {
+		return shortURL, appError.NewHTTPError(http.StatusConflict, "", nil)
+	}
 
 	return shortURL, nil
 }
