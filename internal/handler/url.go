@@ -105,3 +105,27 @@ func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
+
+func (h *URLHandler) BatchShortenURL(w http.ResponseWriter, r *http.Request) {
+	var req []model.BatchShortenURLRequest
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&req); err != nil {
+		logger.Log.Error("cannot decode request JSON body", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	results, err := h.service.BatchShortenURL(req)
+	if err != nil {
+		http.Error(w, "failed to batch shorten", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}

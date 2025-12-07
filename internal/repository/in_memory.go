@@ -6,24 +6,35 @@ import (
 )
 
 type URLInMemoryRepository struct {
-	data map[string]model.URLPair
+	data map[string]*model.URLPair
 	mu   sync.RWMutex
 }
 
 func NewURLInMemoryRepository() *URLInMemoryRepository {
-	return &URLInMemoryRepository{data: make(map[string]model.URLPair)}
+	return &URLInMemoryRepository{data: make(map[string]*model.URLPair)}
 }
 
-func (r *URLInMemoryRepository) Save(urlPair model.URLPair) error {
+func (r *URLInMemoryRepository) Save(urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.data[urlPair.Short] = urlPair
 	return nil
 }
 
-func (r *URLInMemoryRepository) GetByShort(short string) (model.URLPair, bool) {
+func (r *URLInMemoryRepository) GetByShort(short string) (*model.URLPair, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	urlPair, ok := r.data[short]
 	return urlPair, ok
+}
+
+func (r *URLInMemoryRepository) SaveMany(urlPairs []*model.URLPair) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, urlPair := range urlPairs {
+		r.data[urlPair.Short] = urlPair
+	}
+
+	return nil
 }

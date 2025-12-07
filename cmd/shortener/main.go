@@ -69,6 +69,8 @@ func run() error {
 		Post(`/`, urlHandler.ShortenURLAsText)
 	r.With(middleware.AllowContentType("application/json")).
 		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
+	r.With(middleware.AllowContentType("application/json")).
+		Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)

@@ -1,0 +1,5 @@
+ALTER TABLE url_pairs
+DROP CONSTRAINT IF EXISTS url_pairs_uid_key;
+
+ALTER TABLE url_pairs
+DROP COLUMN IF EXISTS uid;
