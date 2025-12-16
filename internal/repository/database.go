@@ -59,6 +59,9 @@ func (r *URLDatabaseRepository) GetByShort(ctx context.Context, short string) (*
 
 func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.URLPair) error {
 	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long) VALUES ($1, $2, $3)")
