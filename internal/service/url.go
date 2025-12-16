@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	appError "github.com/alikhanturusbekov/go-url-shortener/pkg/error"
@@ -29,19 +31,22 @@ func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
 
 // ShortenURL Хэширует url и возвращает первые 7 символов
 func (s *URLService) ShortenURL(url string) (string, *appError.HTTPError) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
+	defer cancel()
+
 	validatedURL, err := s.validateURL(url)
 	if err != nil {
 		return "", appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided", err)
 	}
 
-	urlPath, err := s.generateShortURLPath(validatedURL)
+	urlPath, err := s.generateShortURLPath(ctx, validatedURL)
 	if err != nil {
 		return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 	}
 
-	_, isFound := s.repo.GetByShort(urlPath)
+	_, isFound := s.repo.GetByShort(ctx, urlPath)
 	if !isFound {
-		err = s.repo.Save(model.NewURLPair(urlPath, validatedURL, nil))
+		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil))
 		if err != nil && !errors.Is(err, repository.ErrorOnConflict) {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}
@@ -60,13 +65,16 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest) ([]*m
 	results := make([]*model.BatchShortenURLResponse, 0, len(items))
 	urlPairs := make([]*model.URLPair, 0, len(items))
 
+	ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
+	defer cancel()
+
 	for _, item := range items {
 		validatedURL, err := s.validateURL(item.OriginalURL)
 		if err != nil {
 			return nil, appError.NewHTTPError(http.StatusBadRequest, "Invalid URL was provided", err)
 		}
 
-		urlPath, err := s.generateShortURLPath(validatedURL)
+		urlPath, err := s.generateShortURLPath(ctx, validatedURL)
 		if err != nil {
 			return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 		}
@@ -78,7 +86,7 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest) ([]*m
 		})
 	}
 
-	if err := s.repo.SaveMany(urlPairs); err != nil {
+	if err := s.repo.SaveMany(ctx, urlPairs); err != nil {
 		return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to batch save URL pairs", err)
 	}
 
@@ -86,7 +94,10 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest) ([]*m
 }
 
 func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPError) {
-	urlPair, isFound := s.repo.GetByShort(shortURL)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	urlPair, isFound := s.repo.GetByShort(ctx, shortURL)
 
 	if isFound {
 		return urlPair.Long, nil
@@ -117,11 +128,11 @@ func (s *URLService) validateURL(originalURL string) (string, error) {
 	return resultURL.String(), nil
 }
 
-func (s *URLService) generateShortURLPath(originalURL string) (string, error) {
+func (s *URLService) generateShortURLPath(ctx context.Context, originalURL string) (string, error) {
 	urlPath := s.hashURL(originalURL)
 
 	for {
-		urlPair, isFound := s.repo.GetByShort(urlPath)
+		urlPair, isFound := s.repo.GetByShort(ctx, urlPath)
 
 		if !isFound || urlPair.Long == originalURL {
 			return urlPath, nil

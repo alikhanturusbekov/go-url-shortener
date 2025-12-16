@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
@@ -16,12 +17,12 @@ func NewURLDatabaseRepository(db *sql.DB) *URLDatabaseRepository {
 	return &URLDatabaseRepository{db: db}
 }
 
-func (r *URLDatabaseRepository) Save(urlPair *model.URLPair) error {
+func (r *URLDatabaseRepository) Save(ctx context.Context, urlPair *model.URLPair) error {
 	query := `
         INSERT INTO url_pairs (uid, short, long)
         VALUES ($1, $2, $3)
     `
-	_, err := r.db.Exec(query, urlPair.ID, urlPair.Short, urlPair.Long)
+	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -38,7 +39,7 @@ func (r *URLDatabaseRepository) Save(urlPair *model.URLPair) error {
 	return err
 }
 
-func (r *URLDatabaseRepository) GetByShort(short string) (*model.URLPair, bool) {
+func (r *URLDatabaseRepository) GetByShort(ctx context.Context, short string) (*model.URLPair, bool) {
 	var result model.URLPair
 
 	query := `
@@ -47,7 +48,7 @@ func (r *URLDatabaseRepository) GetByShort(short string) (*model.URLPair, bool) 
         WHERE short = $1;
     `
 
-	err := r.db.QueryRow(query, short).Scan(&result.Short, &result.Long)
+	err := r.db.QueryRowContext(ctx, query, short).Scan(&result.Short, &result.Long)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false
@@ -56,14 +57,11 @@ func (r *URLDatabaseRepository) GetByShort(short string) (*model.URLPair, bool) 
 	return &result, err == nil
 }
 
-func (r *URLDatabaseRepository) SaveMany(urlPairs []*model.URLPair) error {
+func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.URLPair) error {
 	tx, err := r.db.Begin()
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
+	defer tx.Rollback()
 
-	stmt, err := tx.Prepare("INSERT INTO url_pairs (uid, short, long) VALUES ($1, $2, $3)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long) VALUES ($1, $2, $3)")
 	if err != nil {
 		return err
 	}

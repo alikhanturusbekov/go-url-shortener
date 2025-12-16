@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
@@ -277,8 +279,11 @@ func TestResolveURL(t *testing.T) {
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
 
+			ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
+			defer cancel()
+
 			for _, urlPair := range tt.mockURLDatabase {
-				err := urlRepo.Save(urlPair)
+				err := urlRepo.Save(ctx, urlPair)
 				require.NoError(t, err)
 			}
 

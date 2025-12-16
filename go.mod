@@ -1,8 +1,8 @@
 module github.com/alikhanturusbekov/go-url-shortener
 
-go 1.23.0
+go 1.25
 
-toolchain go1.24.10
+toolchain go1.25.0
 
 require (
 	github.com/caarlos0/env/v6 v6.10.1

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"io"
@@ -29,7 +30,7 @@ func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	return repo, nil
 }
 
-func (r *URLFileRepository) Save(urlPair *model.URLPair) error {
+func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -59,14 +60,14 @@ func (r *URLFileRepository) Save(urlPair *model.URLPair) error {
 	return nil
 }
 
-func (r *URLFileRepository) GetByShort(short string) (*model.URLPair, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *URLFileRepository) GetByShort(_ context.Context, short string) (*model.URLPair, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	urlPair, ok := r.data[short]
 	return urlPair, ok
 }
 
-func (r *URLFileRepository) SaveMany(urlPairs []*model.URLPair) error {
+func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

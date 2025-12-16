@@ -45,7 +45,7 @@ func run() error {
 
 	if appConfig.DatabaseDSN != "" {
 		if err := applyMigrations(database, "migrations"); err != nil {
-			log.Fatal(err)
+			log.Fatalf("failed to apply migrations: %v", err)
 		}
 	}
 
@@ -78,7 +78,7 @@ func run() error {
 
 func setupRepository(config *config.Config) (repository.URLRepository, func(), error) {
 	if config.DatabaseDSN != "" {
-		log.Print("Using the database for storage...")
+		logger.Log.Info("Using the database for storage...")
 
 		database, err := sql.Open("pgx", config.DatabaseDSN)
 		if err != nil {
@@ -92,14 +92,14 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 	}
 
 	if config.FileStoragePath != "" {
-		log.Print("Using the file system for storage...")
+		logger.Log.Info("Using the file system for storage...")
 
 		fileRepo, err := repository.NewURLFileRepository(config.FileStoragePath)
 
 		return fileRepo, func() {}, err
 	}
 
-	log.Print("Using the in-memory repository...")
+	logger.Log.Info("Using the in-memory repository...")
 
 	return repository.NewURLInMemoryRepository(), func() {}, nil
 }
@@ -145,7 +145,7 @@ func applyMigrations(db *sql.DB, dir string) error {
 			return fmt.Errorf("failed to record applied migration %s: %w", version, err)
 		}
 
-		log.Println("Applied migration:", version)
+		logger.Log.Info("Applied migration: " + version)
 	}
 
 	return nil

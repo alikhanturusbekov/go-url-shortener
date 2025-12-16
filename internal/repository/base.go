@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
@@ -9,7 +10,7 @@ import (
 var ErrorOnConflict = errors.New("conflict")
 
 type URLRepository interface {
-	Save(urlPair *model.URLPair) error
-	GetByShort(short string) (*model.URLPair, bool)
-	SaveMany(urlPairs []*model.URLPair) error
+	Save(ctx context.Context, urlPair *model.URLPair) error
+	GetByShort(ctx context.Context, short string) (*model.URLPair, bool)
+	SaveMany(ctx context.Context, urlPairs []*model.URLPair) error
 }
