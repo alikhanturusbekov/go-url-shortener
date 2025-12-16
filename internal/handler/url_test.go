@@ -2,9 +2,13 @@ package handler
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,7 +16,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,6 +29,8 @@ import (
 )
 
 var testConfig *config.Config
+
+var database *sql.DB
 
 func TestMain(m *testing.M) {
 	tmpDir, err := os.MkdirTemp("", "url_test")
@@ -35,7 +43,14 @@ func TestMain(m *testing.M) {
 		Address:         "localhost:9999",
 		BaseURL:         "http://localhost:9999",
 		FileStoragePath: filepath.Join(tmpDir, "url_pairs_test.json"),
+		DatabaseDSN:     "postgres://username:password@localhost:5432/postgres",
 	}
+
+	database, err := sql.Open("pgx", testConfig.DatabaseDSN)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer database.Close()
 
 	code := m.Run()
 
@@ -111,7 +126,7 @@ func TestShortenURLAsText(t *testing.T) {
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			h := NewURLHandler(urlService).ShortenURLAsText
+			h := NewURLHandler(urlService, database).ShortenURLAsText
 			w := httptest.NewRecorder()
 			h(w, request)
 
@@ -189,7 +204,7 @@ func TestShortenURLAsJSON(t *testing.T) {
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			h := NewURLHandler(urlService).ShortenURLAsJSON
+			h := NewURLHandler(urlService, database).ShortenURLAsJSON
 			w := httptest.NewRecorder()
 			h(w, request)
 
@@ -198,8 +213,6 @@ func TestShortenURLAsJSON(t *testing.T) {
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
-
-			fmt.Println(result.Body)
 
 			if tt.want.statusCode == http.StatusCreated {
 				var response model.Response
@@ -225,13 +238,13 @@ func TestResolveURL(t *testing.T) {
 	tests := []struct {
 		name            string
 		targetURL       string
-		mockURLDatabase []model.URLPair
+		mockURLDatabase []*model.URLPair
 		want            want
 	}{
 		{
 			name:      "Positive case: URL exists in Database",
 			targetURL: "abcdefg",
-			mockURLDatabase: []model.URLPair{
+			mockURLDatabase: []*model.URLPair{
 				{
 					Short: "abcdefg",
 					Long:  "https://yandex.ru",
@@ -248,7 +261,7 @@ func TestResolveURL(t *testing.T) {
 		{
 			name:      "Negative case: URL does not exist in Database",
 			targetURL: "abcdefg",
-			mockURLDatabase: []model.URLPair{
+			mockURLDatabase: []*model.URLPair{
 				{
 					Short: "gfedvba",
 					Long:  "https://yandex.ru",
@@ -266,14 +279,17 @@ func TestResolveURL(t *testing.T) {
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
 
+			ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
+			defer cancel()
+
 			for _, urlPair := range tt.mockURLDatabase {
-				err := urlRepo.Save(urlPair)
+				err := urlRepo.Save(ctx, urlPair)
 				require.NoError(t, err)
 			}
 
 			mux := http.NewServeMux()
 			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
-			mux.HandleFunc("/{id}", NewURLHandler(urlService).ResolveURL)
+			mux.HandleFunc("/{id}", NewURLHandler(urlService, database).ResolveURL)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetURL, nil)
 
@@ -286,6 +302,79 @@ func TestResolveURL(t *testing.T) {
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			for header, value := range tt.want.headers {
 				assert.Equal(t, value, result.Header.Get(header))
+			}
+		})
+	}
+}
+
+func TestBatchShortenURL(t *testing.T) {
+	type requestData struct {
+		headers map[string]string
+		method  string
+		body    []model.BatchShortenURLRequest
+	}
+	type want struct {
+		contentType string
+		statusCode  int
+		body        []model.BatchShortenURLResponse
+	}
+	tests := []struct {
+		name        string
+		requestData requestData
+		want        want
+	}{
+		{
+			name: "Positive case: ",
+			requestData: requestData{
+				headers: map[string]string{"Content-Type": "application/json"},
+				method:  http.MethodPost,
+				body: []model.BatchShortenURLRequest{
+					{
+						CorrelationID: pointer(uuid.NewString()),
+						OriginalURL:   "https://practicum.yandex.ru",
+					},
+					{
+						CorrelationID: pointer(uuid.NewString()),
+						OriginalURL:   "https://yandex.ru",
+					},
+				},
+			},
+			want: want{
+				contentType: "application/json",
+				statusCode:  http.StatusCreated,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, err := json.Marshal(tt.requestData.body)
+			require.NoError(t, err)
+			request := httptest.NewRequest(tt.requestData.method, "/", bytes.NewReader(bodyBytes))
+			for name, value := range tt.requestData.headers {
+				request.Header.Set(name, value)
+			}
+
+			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
+			require.NoError(t, err)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+			h := NewURLHandler(urlService, database).BatchShortenURL
+			w := httptest.NewRecorder()
+			h(w, request)
+
+			result := w.Result()
+			defer result.Body.Close()
+
+			var responseData []model.BatchShortenURLResponse
+			err = json.Unmarshal(bodyBytes, &responseData)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
+			assert.Equal(t, len(tt.requestData.body), len(responseData))
+
+			for i := range tt.requestData.body {
+				assert.Equal(t, tt.requestData.body[i].CorrelationID, responseData[i].CorrelationID)
 			}
 		})
 	}
@@ -304,3 +393,5 @@ func setupURLFileRepository(filePath string) (*repository.URLFileRepository, err
 
 	return urlRepo, nil
 }
+
+func pointer(s string) *string { return &s }

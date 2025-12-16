@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
@@ -9,14 +11,31 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 type URLHandler struct {
-	service *service.URLService
+	service  *service.URLService
+	database *sql.DB
 }
 
-func NewURLHandler(service *service.URLService) *URLHandler {
-	return &URLHandler{service: service}
+func NewURLHandler(service *service.URLService, database *sql.DB) *URLHandler {
+	return &URLHandler{
+		service:  service,
+		database: database,
+	}
+}
+
+func (h *URLHandler) Ping(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := h.database.PingContext(ctx); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
@@ -34,13 +53,17 @@ func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
 	}(r.Body)
 
 	url, appError := h.service.ShortenURL(string(body))
-	if appError != nil {
+	if appError != nil && url == "" {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
+	if appError != nil {
+		w.WriteHeader(appError.Code)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 
 	_, err = w.Write([]byte(url))
 	if err != nil {
@@ -58,13 +81,17 @@ func (h *URLHandler) ShortenURLAsJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url, appError := h.service.ShortenURL(req.URL)
-	if appError != nil {
+	if appError != nil && url == "" {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	if appError != nil {
+		w.WriteHeader(appError.Code)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 
 	resp := model.Response{Result: url}
 
@@ -85,4 +112,28 @@ func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+func (h *URLHandler) BatchShortenURL(w http.ResponseWriter, r *http.Request) {
+	var req []model.BatchShortenURLRequest
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&req); err != nil {
+		logger.Log.Error("cannot decode request JSON body", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	results, err := h.service.BatchShortenURL(req)
+	if err != nil {
+		http.Error(w, "failed to batch shorten", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }

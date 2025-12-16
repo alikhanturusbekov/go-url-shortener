@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"io"
@@ -8,21 +9,16 @@ import (
 	"sync"
 )
 
-type URLRepository interface {
-	Save(url model.URLPair) error
-	GetByShort(short string) (model.URLPair, bool)
-}
-
 type URLFileRepository struct {
 	filePath string
-	data     map[string]model.URLPair // key is Short
+	data     map[string]*model.URLPair
 	mu       sync.RWMutex
 }
 
 func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	repo := &URLFileRepository{
 		filePath: filePath,
-		data:     make(map[string]model.URLPair),
+		data:     make(map[string]*model.URLPair),
 	}
 
 	if _, err := os.Stat(filePath); err == nil {
@@ -34,13 +30,9 @@ func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	return repo, nil
 }
 
-// Save appends a ShortLink to the JSON array in the file
-func (r *URLFileRepository) Save(urlPair model.URLPair) error {
+func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	// Update in-memory map
-	r.data[urlPair.Short] = urlPair
 
 	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -63,14 +55,49 @@ func (r *URLFileRepository) Save(urlPair model.URLPair) error {
 		return err
 	}
 
+	r.data[urlPair.Short] = urlPair
+
 	return nil
 }
 
-func (r *URLFileRepository) GetByShort(short string) (model.URLPair, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *URLFileRepository) GetByShort(_ context.Context, short string) (*model.URLPair, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	urlPair, ok := r.data[short]
 	return urlPair, ok
+}
+
+func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPair) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	file, err := os.OpenFile(r.filePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	isFirstRecord := stat.Size() == 0
+
+	for _, urlPair := range urlPairs {
+		urlJSON, err := json.Marshal(urlPair)
+		if err != nil {
+			return err
+		}
+
+		if err := r.addRecord(file, urlJSON, isFirstRecord); err != nil {
+			return err
+		}
+
+		isFirstRecord = false
+	}
+
+	return nil
 }
 
 func (r *URLFileRepository) load() error {
@@ -80,7 +107,7 @@ func (r *URLFileRepository) load() error {
 	}
 	defer file.Close()
 
-	var urlPairs []model.URLPair
+	var urlPairs []*model.URLPair
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&urlPairs); err != nil {
 		return nil
