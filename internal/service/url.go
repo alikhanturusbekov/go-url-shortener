@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,14 +19,20 @@ import (
 )
 
 type URLService struct {
-	repo    repository.URLRepository
-	baseURL string
+	repo            repository.URLRepository
+	baseURL         string
+	deleteURLWorker *worker.DeleteURLWorker
 }
 
-func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
+func NewURLService(
+	repo repository.URLRepository,
+	baseURL string,
+	deleteURLWorker *worker.DeleteURLWorker,
+) *URLService {
 	return &URLService{
-		repo:    repo,
-		baseURL: baseURL,
+		repo:            repo,
+		baseURL:         baseURL,
+		deleteURLWorker: deleteURLWorker,
 	}
 }
 
@@ -136,16 +143,11 @@ func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *app
 }
 
 func (s *URLService) DeleteUserURLs(userID string, shorts []string) *appError.HTTPError {
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	if len(shorts) == 0 {
-		return nil
-	}
-
-	err := s.repo.DeleteByShorts(ctx, userID, shorts)
-	if err != nil {
-		return appError.NewHTTPError(http.StatusInternalServerError, "failed to delete URL pairs", err)
+	for _, short := range shorts {
+		s.deleteURLWorker.Enqueue(model.DeleteURLTask{
+			UserID: userID,
+			Short:  short,
+		})
 	}
 
 	return nil

@@ -35,6 +35,11 @@ type URLPairsResponse struct {
 	OriginalURL string `json:"original_url"`
 }
 
+type DeleteURLTask struct {
+	UserID string `json:"user_id"`
+	Short  string `json:"short"`
+}
+
 func NewURLPair(short, long string, id *string, userID string, isDeleted bool) *URLPair {
 	urlPair := &URLPair{
 		ID:        uuid.NewString(),

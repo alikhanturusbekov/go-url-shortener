@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -33,6 +35,8 @@ func main() {
 
 func run() error {
 	appConfig := config.NewConfig()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if err := logger.Initialize(appConfig.LogLevel); err != nil {
 		return err
@@ -56,7 +60,10 @@ func run() error {
 	}
 	defer cleanUp()
 
-	urlService := service.NewURLService(urlRepo, appConfig.BaseURL)
+	deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
+	go deleteURLWorker.Run(ctx)
+
+	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker)
 	urlHandler := handler.NewURLHandler(urlService, database)
 
 	r := chi.NewRouter()
