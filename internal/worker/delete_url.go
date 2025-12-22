@@ -30,8 +30,8 @@ func (w *DeleteURLWorker) Enqueue(task model.DeleteURLTask) {
 
 func (w *DeleteURLWorker) Run(ctx context.Context) {
 	const (
-		maxBatchSize = 50
-		flushTimeout = 50 * time.Millisecond
+		maxBatchSize = 100
+		flushTimeout = 500 * time.Millisecond
 	)
 
 	ticker := time.NewTicker(flushTimeout)
