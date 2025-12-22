@@ -39,3 +39,18 @@ func (r *URLInMemoryRepository) SaveMany(_ context.Context, urlPairs []*model.UR
 
 	return nil
 }
+
+func (r *URLInMemoryRepository) GetAllByUserID(_ context.Context, userID string) ([]*model.URLPair, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*model.URLPair
+
+	for _, urlPair := range r.data {
+		if urlPair.UserId == userID {
+			result = append(result, urlPair)
+		}
+	}
+
+	return result, nil
+}

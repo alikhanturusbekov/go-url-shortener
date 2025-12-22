@@ -100,6 +100,21 @@ func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPai
 	return nil
 }
 
+func (r *URLFileRepository) GetAllByUserID(_ context.Context, userID string) ([]*model.URLPair, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*model.URLPair
+
+	for _, urlPair := range r.data {
+		if urlPair.UserId == userID {
+			result = append(result, urlPair)
+		}
+	}
+
+	return result, nil
+}
+
 func (r *URLFileRepository) load() error {
 	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {

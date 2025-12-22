@@ -13,9 +13,10 @@ type Response struct {
 }
 
 type URLPair struct {
-	ID    string `json:"uid"`
-	Short string `json:"short"`
-	Long  string `json:"long"`
+	ID     string `json:"uid"`
+	Short  string `json:"short"`
+	Long   string `json:"long"`
+	UserId string `json:"user_id"`
 }
 
 type BatchShortenURLRequest struct {
@@ -28,11 +29,17 @@ type BatchShortenURLResponse struct {
 	ShortURL      string  `json:"short_url"`
 }
 
-func NewURLPair(short, long string, id *string) *URLPair {
+type URLPairsResponse struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+func NewURLPair(short, long string, id *string, userId string) *URLPair {
 	urlPair := &URLPair{
-		ID:    uuid.NewString(),
-		Short: short,
-		Long:  long,
+		ID:     uuid.NewString(),
+		Short:  short,
+		Long:   long,
+		UserId: userId,
 	}
 
 	if id != nil {

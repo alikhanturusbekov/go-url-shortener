@@ -19,10 +19,10 @@ func NewURLDatabaseRepository(db *sql.DB) *URLDatabaseRepository {
 
 func (r *URLDatabaseRepository) Save(ctx context.Context, urlPair *model.URLPair) error {
 	query := `
-        INSERT INTO url_pairs (uid, short, long)
-        VALUES ($1, $2, $3)
+        INSERT INTO url_pairs (uid, short, long, user_id)
+        VALUES ($1, $2, $3, $4)
     `
-	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long)
+	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserId)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -64,20 +64,50 @@ func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long) VALUES ($1, $2, $3)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long, user_id) VALUES ($1, $2, $3, $4)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
 	for _, urlPair := range urlPairs {
-		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long)
+		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserId)
 		if fail != nil {
 			return fail
 		}
 	}
 
 	return tx.Commit()
+}
+
+func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userId string) ([]*model.URLPair, error) {
+	var result []*model.URLPair
+
+	query := `
+        SELECT uid, short, long, user_id
+        FROM url_pairs
+        WHERE user_id = $1;
+    `
+
+	rows, err := r.db.QueryContext(ctx, query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var pair model.URLPair
+		if rowsErr := rows.Scan(&pair.ID, &pair.Short, &pair.Long, &pair.UserId); rowsErr != nil {
+			return nil, rowsErr
+		}
+		result = append(result, &pair)
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (r *URLDatabaseRepository) Close() error {
