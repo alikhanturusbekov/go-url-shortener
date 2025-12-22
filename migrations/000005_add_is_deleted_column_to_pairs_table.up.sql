@@ -1,0 +1,2 @@
+ALTER TABLE url_pairs
+    ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;

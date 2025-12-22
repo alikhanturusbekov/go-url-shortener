@@ -13,10 +13,11 @@ type Response struct {
 }
 
 type URLPair struct {
-	ID     string `json:"uid"`
-	Short  string `json:"short"`
-	Long   string `json:"long"`
-	UserID string `json:"user_id"`
+	ID        string `json:"uid"`
+	Short     string `json:"short"`
+	Long      string `json:"long"`
+	UserID    string `json:"user_id"`
+	IsDeleted bool   `json:"is_deleted"`
 }
 
 type BatchShortenURLRequest struct {
@@ -34,12 +35,18 @@ type URLPairsResponse struct {
 	OriginalURL string `json:"original_url"`
 }
 
-func NewURLPair(short, long string, id *string, userID string) *URLPair {
+type DeleteURLTask struct {
+	UserID string `json:"user_id"`
+	Short  string `json:"short"`
+}
+
+func NewURLPair(short, long string, id *string, userID string, isDeleted bool) *URLPair {
 	urlPair := &URLPair{
-		ID:     uuid.NewString(),
-		Short:  short,
-		Long:   long,
-		UserID: userID,
+		ID:        uuid.NewString(),
+		Short:     short,
+		Long:      long,
+		UserID:    userID,
+		IsDeleted: isDeleted,
 	}
 
 	if id != nil {

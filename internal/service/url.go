@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,14 +19,20 @@ import (
 )
 
 type URLService struct {
-	repo    repository.URLRepository
-	baseURL string
+	repo            repository.URLRepository
+	baseURL         string
+	deleteURLWorker *worker.DeleteURLWorker
 }
 
-func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
+func NewURLService(
+	repo repository.URLRepository,
+	baseURL string,
+	deleteURLWorker *worker.DeleteURLWorker,
+) *URLService {
 	return &URLService{
-		repo:    repo,
-		baseURL: baseURL,
+		repo:            repo,
+		baseURL:         baseURL,
+		deleteURLWorker: deleteURLWorker,
 	}
 }
 
@@ -46,7 +53,7 @@ func (s *URLService) ShortenURL(url string, userID string) (string, *appError.HT
 
 	_, isFound := s.repo.GetByShort(ctx, urlPath)
 	if !isFound {
-		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil, userID))
+		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil, userID, false))
 		if err != nil && !errors.Is(err, repository.ErrorOnConflict) {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}
@@ -79,7 +86,7 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userI
 			return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 		}
 
-		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID, userID))
+		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID, userID, false))
 		results = append(results, &model.BatchShortenURLResponse{
 			CorrelationID: item.CorrelationID,
 			ShortURL:      fmt.Sprintf("%s/%s", s.baseURL, urlPath),
@@ -99,15 +106,23 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 
 	urlPair, isFound := s.repo.GetByShort(ctx, shortURL)
 
-	if isFound {
-		return urlPair.Long, nil
+	if !isFound {
+		return "", appError.NewHTTPError(
+			http.StatusNotFound,
+			"Could not resolve provided URL",
+			errors.New("url not found"),
+		)
 	}
 
-	return "", appError.NewHTTPError(
-		http.StatusNotFound,
-		"Could not resolve provided URL",
-		errors.New("url not found"),
-	)
+	if urlPair.IsDeleted {
+		return "", appError.NewHTTPError(
+			http.StatusGone,
+			"URL is no longer active",
+			errors.New("URL has been deleted by the user"),
+		)
+	}
+
+	return urlPair.Long, nil
 }
 
 func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *appError.HTTPError) {
@@ -129,6 +144,17 @@ func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *app
 	}
 
 	return results, nil
+}
+
+func (s *URLService) DeleteUserURLs(userID string, shorts []string) *appError.HTTPError {
+	for _, short := range shorts {
+		s.deleteURLWorker.Enqueue(model.DeleteURLTask{
+			UserID: userID,
+			Short:  short,
+		})
+	}
+
+	return nil
 }
 
 func (s *URLService) validateURL(originalURL string) (string, error) {
