@@ -30,7 +30,7 @@ func NewURLService(repo repository.URLRepository, baseURL string) *URLService {
 }
 
 // ShortenURL Хэширует url и возвращает первые 7 символов
-func (s *URLService) ShortenURL(url string, userId string) (string, *appError.HTTPError) {
+func (s *URLService) ShortenURL(url string, userID string) (string, *appError.HTTPError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
 	defer cancel()
 
@@ -46,7 +46,7 @@ func (s *URLService) ShortenURL(url string, userId string) (string, *appError.HT
 
 	_, isFound := s.repo.GetByShort(ctx, urlPath)
 	if !isFound {
-		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil, userId))
+		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil, userID))
 		if err != nil && !errors.Is(err, repository.ErrorOnConflict) {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}
@@ -61,7 +61,7 @@ func (s *URLService) ShortenURL(url string, userId string) (string, *appError.HT
 	return shortURL, nil
 }
 
-func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userId string) ([]*model.BatchShortenURLResponse, *appError.HTTPError) {
+func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userID string) ([]*model.BatchShortenURLResponse, *appError.HTTPError) {
 	results := make([]*model.BatchShortenURLResponse, 0, len(items))
 	urlPairs := make([]*model.URLPair, 0, len(items))
 
@@ -79,7 +79,7 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userI
 			return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 		}
 
-		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID, userId))
+		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID, userID))
 		results = append(results, &model.BatchShortenURLResponse{
 			CorrelationID: item.CorrelationID,
 			ShortURL:      fmt.Sprintf("%s/%s", s.baseURL, urlPath),
@@ -110,11 +110,11 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 	)
 }
 
-func (s *URLService) GetUserURLs(userId string) ([]*model.URLPairsResponse, *appError.HTTPError) {
+func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *appError.HTTPError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	urlPairs, err := s.repo.GetAllByUserID(ctx, userId)
+	urlPairs, err := s.repo.GetAllByUserID(ctx, userID)
 	if err != nil {
 		return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to get user URLs", err)
 	}
