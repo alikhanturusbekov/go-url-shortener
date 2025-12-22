@@ -39,11 +39,7 @@ func (r *URLInMemoryRepository) GetByShort(_ context.Context, short string) (*mo
 func (r *URLInMemoryRepository) SaveMany(_ context.Context, urlPairs []*model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	for _, urlPair := range urlPairs {
-		r.data = append(r.data, urlPair)
-	}
-
+	r.data = append(r.data, urlPairs...)
 	return nil
 }
 
