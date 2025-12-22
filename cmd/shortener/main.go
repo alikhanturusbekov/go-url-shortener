@@ -73,7 +73,10 @@ func run() error {
 		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
 	r.With(middleware.AllowContentType("application/json")).
 		Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+
 	r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
+	r.With(middleware.AllowContentType("application/json")).
+		Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)

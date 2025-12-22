@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/lib/pq"
 )
 
 type URLDatabaseRepository struct {
@@ -19,10 +22,10 @@ func NewURLDatabaseRepository(db *sql.DB) *URLDatabaseRepository {
 
 func (r *URLDatabaseRepository) Save(ctx context.Context, urlPair *model.URLPair) error {
 	query := `
-        INSERT INTO url_pairs (uid, short, long, user_id)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO url_pairs (uid, short, long, user_id, is_deleted)
+        VALUES ($1, $2, $3, $4, $5)
     `
-	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID)
+	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID, urlPair.IsDeleted)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -64,14 +67,14 @@ func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long, user_id) VALUES ($1, $2, $3, $4)")
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long, user_id, is_deleted) VALUES ($1, $2, $3, $4, $5)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
 	for _, urlPair := range urlPairs {
-		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID)
+		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID, urlPair.IsDeleted)
 		if fail != nil {
 			return fail
 		}
@@ -86,7 +89,7 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID strin
 	query := `
         SELECT uid, short, long, user_id
         FROM url_pairs
-        WHERE user_id = $1;
+        WHERE user_id = $1 AND is_deleted = false;
     `
 
 	rows, err := r.db.QueryContext(ctx, query, userID)
@@ -108,6 +111,23 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID strin
 	}
 
 	return result, nil
+}
+
+func (r *URLDatabaseRepository) DeleteByIDs(ctx context.Context, userID string, ids []string) error {
+	query := `
+		UPDATE url_pairs
+		SET is_deleted = TRUE
+		WHERE user_id = $1 AND uid = ANY($2)
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		userID,
+		pq.Array(ids),
+	)
+
+	return err
 }
 
 func (r *URLDatabaseRepository) Close() error {

@@ -164,6 +164,28 @@ func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authorization.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "need to authorize to access this method", http.StatusUnauthorized)
+	}
+
+	var ids []string
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&ids); err != nil {
+		logger.Log.Error("cannot decode request JSON body", zap.Error(err))
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.service.DeleteUserURLs(userID, ids)
+	if err != nil {
+		http.Error(w, "failed to delete URL pairs", http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (h *URLHandler) getUserID(r *http.Request) string {
 	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {

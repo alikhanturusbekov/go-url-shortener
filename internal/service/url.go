@@ -46,7 +46,7 @@ func (s *URLService) ShortenURL(url string, userID string) (string, *appError.HT
 
 	_, isFound := s.repo.GetByShort(ctx, urlPath)
 	if !isFound {
-		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil, userID))
+		err = s.repo.Save(ctx, model.NewURLPair(urlPath, validatedURL, nil, userID, false))
 		if err != nil && !errors.Is(err, repository.ErrorOnConflict) {
 			return "", appError.NewHTTPError(http.StatusInternalServerError, "Failed to save URL", err)
 		}
@@ -79,7 +79,7 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userI
 			return nil, appError.NewHTTPError(http.StatusInternalServerError, "Failed to generate short URL", err)
 		}
 
-		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID, userID))
+		urlPairs = append(urlPairs, model.NewURLPair(urlPath, item.OriginalURL, item.CorrelationID, userID, false))
 		results = append(results, &model.BatchShortenURLResponse{
 			CorrelationID: item.CorrelationID,
 			ShortURL:      fmt.Sprintf("%s/%s", s.baseURL, urlPath),
@@ -98,6 +98,10 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 	defer cancel()
 
 	urlPair, isFound := s.repo.GetByShort(ctx, shortURL)
+
+	if urlPair.IsDeleted {
+		return "", appError.NewHTTPError(http.StatusGone, "URL has been deleted", nil)
+	}
 
 	if isFound {
 		return urlPair.Long, nil
@@ -129,6 +133,22 @@ func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *app
 	}
 
 	return results, nil
+}
+
+func (s *URLService) DeleteUserURLs(userID string, ids []string) *appError.HTTPError {
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	err := s.repo.DeleteByIDs(ctx, userID, ids)
+	if err != nil {
+		return appError.NewHTTPError(http.StatusInternalServerError, "failed to delete URL pairs", err)
+	}
+
+	return nil
 }
 
 func (s *URLService) validateURL(originalURL string) (string, error) {

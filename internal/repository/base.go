@@ -14,4 +14,5 @@ type URLRepository interface {
 	GetByShort(ctx context.Context, short string) (*model.URLPair, bool)
 	SaveMany(ctx context.Context, urlPairs []*model.URLPair) error
 	GetAllByUserID(ctx context.Context, userID string) ([]*model.URLPair, error)
+	DeleteByIDs(ctx context.Context, userID string, ids []string) error
 }
