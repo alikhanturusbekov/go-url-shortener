@@ -46,12 +46,18 @@ func (r *URLDatabaseRepository) GetByShort(ctx context.Context, short string) (*
 	var result model.URLPair
 
 	query := `
-        SELECT short, long
+        SELECT uid, short, long, user_id, is_deleted
         FROM url_pairs
         WHERE short = $1;
     `
 
-	err := r.db.QueryRowContext(ctx, query, short).Scan(&result.Short, &result.Long)
+	err := r.db.QueryRowContext(ctx, query, short).Scan(
+		&result.ID,
+		&result.Short,
+		&result.Long,
+		&result.UserID,
+		&result.IsDeleted,
+	)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false

@@ -115,7 +115,11 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 	}
 
 	if urlPair.IsDeleted {
-		return "", appError.NewHTTPError(http.StatusGone, "URL has been deleted", nil)
+		return "", appError.NewHTTPError(
+			http.StatusGone,
+			"URL is no longer active",
+			errors.New("URL has been deleted by the user"),
+		)
 	}
 
 	return urlPair.Long, nil
