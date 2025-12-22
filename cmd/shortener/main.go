@@ -16,6 +16,7 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/compress"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
@@ -62,6 +63,7 @@ func run() error {
 
 	r.Use(logger.RequestLogger())
 	r.Use(compress.GzipCompressor())
+	r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
 
 	r.Get("/ping", urlHandler.Ping)
 	r.Get(`/{id}`, urlHandler.ResolveURL)
@@ -71,6 +73,7 @@ func run() error {
 		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
 	r.With(middleware.AllowContentType("application/json")).
 		Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+	r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)
