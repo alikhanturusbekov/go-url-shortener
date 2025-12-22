@@ -26,6 +26,7 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 )
 
 var testConfig *config.Config
@@ -125,7 +126,13 @@ func TestShortenURLAsText(t *testing.T) {
 
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
+			go deleteURLWorker.Run(ctx)
+
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
 			h := NewURLHandler(urlService, database).ShortenURLAsText
 			w := httptest.NewRecorder()
 			h(w, request)
@@ -203,7 +210,13 @@ func TestShortenURLAsJSON(t *testing.T) {
 
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
+			go deleteURLWorker.Run(ctx)
+
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
 			h := NewURLHandler(urlService, database).ShortenURLAsJSON
 			w := httptest.NewRecorder()
 			h(w, request)
@@ -287,8 +300,13 @@ func TestResolveURL(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			ctx, cancel = context.WithCancel(context.Background())
+			defer cancel()
+			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
+			go deleteURLWorker.Run(ctx)
+
 			mux := http.NewServeMux()
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
 			mux.HandleFunc("/{id}", NewURLHandler(urlService, database).ResolveURL)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetURL, nil)
@@ -357,7 +375,13 @@ func TestBatchShortenURL(t *testing.T) {
 
 			urlRepo, err := setupURLFileRepository(testConfig.FileStoragePath)
 			require.NoError(t, err)
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
+			go deleteURLWorker.Run(ctx)
+
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
 			h := NewURLHandler(urlService, database).BatchShortenURL
 			w := httptest.NewRecorder()
 			h(w, request)
