@@ -53,7 +53,7 @@ func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	url, appError := h.service.ShortenURL(string(body), h.getUserId(r))
+	url, appError := h.service.ShortenURL(string(body), h.getUserID(r))
 	if appError != nil && url == "" {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
@@ -81,7 +81,7 @@ func (h *URLHandler) ShortenURLAsJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, appError := h.service.ShortenURL(req.URL, h.getUserId(r))
+	url, appError := h.service.ShortenURL(req.URL, h.getUserID(r))
 	if appError != nil && url == "" {
 		http.Error(w, appError.GetFullMessage(), appError.Code)
 		return
@@ -124,7 +124,7 @@ func (h *URLHandler) BatchShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := h.service.BatchShortenURL(req, h.getUserId(r))
+	results, err := h.service.BatchShortenURL(req, h.getUserID(r))
 	if err != nil {
 		http.Error(w, "failed to batch shorten", http.StatusInternalServerError)
 		return
@@ -140,12 +140,12 @@ func (h *URLHandler) BatchShortenURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
-	userId, ok := authorization.UserIDFromContext(r.Context())
+	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "need to authorize to access this method", http.StatusUnauthorized)
 	}
 
-	userURLs, err := h.service.GetUserURLs(userId)
+	userURLs, err := h.service.GetUserURLs(userID)
 	if err != nil {
 		http.Error(w, "failed to fetch user URLs", http.StatusInternalServerError)
 	}
@@ -164,11 +164,11 @@ func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *URLHandler) getUserId(r *http.Request) string {
-	userId, ok := authorization.UserIDFromContext(r.Context())
+func (h *URLHandler) getUserID(r *http.Request) string {
+	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {
 		return ""
 	}
 
-	return userId
+	return userID
 }

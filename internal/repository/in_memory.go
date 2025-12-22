@@ -47,7 +47,7 @@ func (r *URLInMemoryRepository) GetAllByUserID(_ context.Context, userID string)
 	var result []*model.URLPair
 
 	for _, urlPair := range r.data {
-		if urlPair.UserId == userID {
+		if urlPair.UserID == userID {
 			result = append(result, urlPair)
 		}
 	}

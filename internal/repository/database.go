@@ -22,7 +22,7 @@ func (r *URLDatabaseRepository) Save(ctx context.Context, urlPair *model.URLPair
         INSERT INTO url_pairs (uid, short, long, user_id)
         VALUES ($1, $2, $3, $4)
     `
-	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserId)
+	_, err := r.db.ExecContext(ctx, query, urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -71,7 +71,7 @@ func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.
 	defer stmt.Close()
 
 	for _, urlPair := range urlPairs {
-		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserId)
+		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID)
 		if fail != nil {
 			return fail
 		}
@@ -80,7 +80,7 @@ func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.
 	return tx.Commit()
 }
 
-func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userId string) ([]*model.URLPair, error) {
+func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID string) ([]*model.URLPair, error) {
 	var result []*model.URLPair
 
 	query := `
@@ -89,7 +89,7 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userId strin
         WHERE user_id = $1;
     `
 
-	rows, err := r.db.QueryContext(ctx, query, userId)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userId strin
 
 	for rows.Next() {
 		var pair model.URLPair
-		if rowsErr := rows.Scan(&pair.ID, &pair.Short, &pair.Long, &pair.UserId); rowsErr != nil {
+		if rowsErr := rows.Scan(&pair.ID, &pair.Short, &pair.Long, &pair.UserID); rowsErr != nil {
 			return nil, rowsErr
 		}
 		result = append(result, &pair)
