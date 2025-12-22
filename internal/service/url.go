@@ -99,19 +99,19 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 
 	urlPair, isFound := s.repo.GetByShort(ctx, shortURL)
 
+	if !isFound {
+		return "", appError.NewHTTPError(
+			http.StatusNotFound,
+			"Could not resolve provided URL",
+			errors.New("url not found"),
+		)
+	}
+
 	if urlPair.IsDeleted {
 		return "", appError.NewHTTPError(http.StatusGone, "URL has been deleted", nil)
 	}
 
-	if isFound {
-		return urlPair.Long, nil
-	}
-
-	return "", appError.NewHTTPError(
-		http.StatusNotFound,
-		"Could not resolve provided URL",
-		errors.New("url not found"),
-	)
+	return urlPair.Long, nil
 }
 
 func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *appError.HTTPError) {
