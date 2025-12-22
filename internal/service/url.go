@@ -135,15 +135,15 @@ func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *app
 	return results, nil
 }
 
-func (s *URLService) DeleteUserURLs(userID string, ids []string) *appError.HTTPError {
+func (s *URLService) DeleteUserURLs(userID string, shorts []string) *appError.HTTPError {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	if len(ids) == 0 {
+	if len(shorts) == 0 {
 		return nil
 	}
 
-	err := s.repo.DeleteByIDs(ctx, userID, ids)
+	err := s.repo.DeleteByShorts(ctx, userID, shorts)
 	if err != nil {
 		return appError.NewHTTPError(http.StatusInternalServerError, "failed to delete URL pairs", err)
 	}

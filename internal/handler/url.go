@@ -170,15 +170,15 @@ func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "need to authorize to access this method", http.StatusUnauthorized)
 	}
 
-	var ids []string
+	var shorts []string
 	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(&ids); err != nil {
+	if err := dec.Decode(&shorts); err != nil {
 		logger.Log.Error("cannot decode request JSON body", zap.Error(err))
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.DeleteUserURLs(userID, ids)
+	err := h.service.DeleteUserURLs(userID, shorts)
 	if err != nil {
 		http.Error(w, "failed to delete URL pairs", http.StatusInternalServerError)
 	}

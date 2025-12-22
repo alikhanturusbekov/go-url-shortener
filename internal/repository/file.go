@@ -122,12 +122,12 @@ func (r *URLFileRepository) GetAllByUserID(_ context.Context, userID string) ([]
 	return result, nil
 }
 
-func (r *URLFileRepository) DeleteByIDs(ctx context.Context, userID string, ids []string) error {
+func (r *URLFileRepository) DeleteByShorts(ctx context.Context, userID string, shorts []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	for _, urlPair := range r.data {
-		if urlPair.UserID == userID && !urlPair.IsDeleted && slices.Contains(ids, urlPair.ID) {
+		if urlPair.UserID == userID && !urlPair.IsDeleted && slices.Contains(shorts, urlPair.Short) {
 			urlPair.IsDeleted = true
 		}
 	}

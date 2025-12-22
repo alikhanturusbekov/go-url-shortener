@@ -113,18 +113,18 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID strin
 	return result, nil
 }
 
-func (r *URLDatabaseRepository) DeleteByIDs(ctx context.Context, userID string, ids []string) error {
+func (r *URLDatabaseRepository) DeleteByShorts(ctx context.Context, userID string, shorts []string) error {
 	query := `
 		UPDATE url_pairs
 		SET is_deleted = TRUE
-		WHERE user_id = $1 AND uid = ANY($2)
+		WHERE user_id = $1 AND short = ANY($2)
 	`
 
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
 		userID,
-		pq.Array(ids),
+		pq.Array(shorts),
 	)
 
 	return err

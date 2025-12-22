@@ -43,12 +43,12 @@ func (r *URLInMemoryRepository) SaveMany(_ context.Context, urlPairs []*model.UR
 	return nil
 }
 
-func (r *URLInMemoryRepository) DeleteByIDs(_ context.Context, userID string, ids []string) error {
+func (r *URLInMemoryRepository) DeleteByShorts(_ context.Context, userID string, shorts []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	for _, urlPair := range r.data {
-		if !urlPair.IsDeleted && urlPair.UserID == userID && slices.Contains(ids, urlPair.ID) {
+		if !urlPair.IsDeleted && urlPair.UserID == userID && slices.Contains(shorts, urlPair.Short) {
 			urlPair.IsDeleted = true
 		}
 	}
