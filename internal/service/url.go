@@ -126,7 +126,7 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 }
 
 func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *appError.HTTPError) {
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 	defer cancel()
 
 	urlPairs, err := s.repo.GetAllByUserID(ctx, userID)
