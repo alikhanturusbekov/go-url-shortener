@@ -3,39 +3,70 @@ package repository
 import (
 	"context"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+	"slices"
 	"sync"
 )
 
 type URLInMemoryRepository struct {
-	data map[string]*model.URLPair
+	data []*model.URLPair
 	mu   sync.RWMutex
 }
 
 func NewURLInMemoryRepository() *URLInMemoryRepository {
-	return &URLInMemoryRepository{data: make(map[string]*model.URLPair)}
+	return &URLInMemoryRepository{data: make([]*model.URLPair, 0)}
 }
 
 func (r *URLInMemoryRepository) Save(_ context.Context, urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.data[urlPair.Short] = urlPair
+	r.data = append(r.data, urlPair)
 	return nil
 }
 
 func (r *URLInMemoryRepository) GetByShort(_ context.Context, short string) (*model.URLPair, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	urlPair, ok := r.data[short]
-	return urlPair, ok
+
+	for _, urlPair := range r.data {
+		if urlPair.Short == short {
+			return urlPair, true
+		}
+	}
+
+	return nil, false
 }
 
 func (r *URLInMemoryRepository) SaveMany(_ context.Context, urlPairs []*model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.data = append(r.data, urlPairs...)
+	return nil
+}
 
-	for _, urlPair := range urlPairs {
-		r.data[urlPair.Short] = urlPair
+func (r *URLInMemoryRepository) DeleteByShorts(_ context.Context, userID string, shorts []string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, urlPair := range r.data {
+		if !urlPair.IsDeleted && urlPair.UserID == userID && slices.Contains(shorts, urlPair.Short) {
+			urlPair.IsDeleted = true
+		}
 	}
 
 	return nil
+}
+
+func (r *URLInMemoryRepository) GetAllByUserID(_ context.Context, userID string) ([]*model.URLPair, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*model.URLPair
+
+	for _, urlPair := range r.data {
+		if urlPair.UserID == userID {
+			result = append(result, urlPair)
+		}
+	}
+
+	return result, nil
 }

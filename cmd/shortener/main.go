@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -16,6 +18,7 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/compress"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
@@ -32,6 +35,8 @@ func main() {
 
 func run() error {
 	appConfig := config.NewConfig()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if err := logger.Initialize(appConfig.LogLevel); err != nil {
 		return err
@@ -55,13 +60,17 @@ func run() error {
 	}
 	defer cleanUp()
 
-	urlService := service.NewURLService(urlRepo, appConfig.BaseURL)
+	deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
+	go deleteURLWorker.Run(ctx)
+
+	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker)
 	urlHandler := handler.NewURLHandler(urlService, database)
 
 	r := chi.NewRouter()
 
 	r.Use(logger.RequestLogger())
 	r.Use(compress.GzipCompressor())
+	r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
 
 	r.Get("/ping", urlHandler.Ping)
 	r.Get(`/{id}`, urlHandler.ResolveURL)
@@ -71,6 +80,10 @@ func run() error {
 		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
 	r.With(middleware.AllowContentType("application/json")).
 		Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+
+	r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
+	r.With(middleware.AllowContentType("application/json")).
+		Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)

@@ -6,19 +6,20 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"io"
 	"os"
+	"slices"
 	"sync"
 )
 
 type URLFileRepository struct {
 	filePath string
-	data     map[string]*model.URLPair
+	data     []*model.URLPair
 	mu       sync.RWMutex
 }
 
 func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	repo := &URLFileRepository{
 		filePath: filePath,
-		data:     make(map[string]*model.URLPair),
+		data:     make([]*model.URLPair, 0),
 	}
 
 	if _, err := os.Stat(filePath); err == nil {
@@ -55,7 +56,7 @@ func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) erro
 		return err
 	}
 
-	r.data[urlPair.Short] = urlPair
+	r.data = append(r.data, urlPair)
 
 	return nil
 }
@@ -63,8 +64,14 @@ func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) erro
 func (r *URLFileRepository) GetByShort(_ context.Context, short string) (*model.URLPair, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	urlPair, ok := r.data[short]
-	return urlPair, ok
+
+	for _, urlPair := range r.data {
+		if urlPair.Short == short {
+			return urlPair, true
+		}
+	}
+
+	return nil, false
 }
 
 func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPair) error {
@@ -100,6 +107,53 @@ func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPai
 	return nil
 }
 
+func (r *URLFileRepository) GetAllByUserID(_ context.Context, userID string) ([]*model.URLPair, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*model.URLPair
+
+	for _, urlPair := range r.data {
+		if urlPair.UserID == userID && !urlPair.IsDeleted {
+			result = append(result, urlPair)
+		}
+	}
+
+	return result, nil
+}
+
+func (r *URLFileRepository) DeleteByShorts(ctx context.Context, userID string, shorts []string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, urlPair := range r.data {
+		if urlPair.UserID == userID && !urlPair.IsDeleted && slices.Contains(shorts, urlPair.Short) {
+			urlPair.IsDeleted = true
+		}
+	}
+
+	err := r.syncFile(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *URLFileRepository) syncFile(ctx context.Context) error {
+	err := os.Truncate(r.filePath, 0)
+	if err != nil {
+		return err
+	}
+
+	err = r.SaveMany(ctx, r.data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *URLFileRepository) load() error {
 	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -113,9 +167,8 @@ func (r *URLFileRepository) load() error {
 		return nil
 	}
 
-	for _, urlPair := range urlPairs {
-		r.data[urlPair.Short] = urlPair
-	}
+	r.data = append(r.data, urlPairs...)
+
 	return nil
 }
 

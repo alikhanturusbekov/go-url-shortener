@@ -1,0 +1,2 @@
+ALTER TABLE url_pairs
+DROP COLUMN IF EXISTS is_deleted;
