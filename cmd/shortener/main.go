@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -60,10 +61,16 @@ func run() error {
 	}
 	defer cleanUp()
 
+	auditPublisher, err := setupAudit(appConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer auditPublisher.Close()
+
 	deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
 	go deleteURLWorker.Run(ctx)
 
-	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker)
+	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker, auditPublisher)
 	urlHandler := handler.NewURLHandler(urlService, database)
 
 	r := chi.NewRouter()
@@ -115,6 +122,29 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 	logger.Log.Info("Using the in-memory repository...")
 
 	return repository.NewURLInMemoryRepository(), func() {}, nil
+}
+
+func setupAudit(config *config.Config) (audit.Publisher, error) {
+	if config.AuditFile == "" && config.AuditURL == "" {
+		return audit.NewNoop(), nil
+	}
+
+	svc := audit.NewService(100)
+
+	if config.AuditFile != "" {
+		fileObserver, err := audit.NewFileObserver(config.AuditFile)
+		if err != nil {
+			return nil, err
+		}
+		svc.Register(fileObserver)
+	}
+
+	if config.AuditURL != "" {
+		httpObserver := audit.NewHTTPObserver(config.AuditURL)
+		svc.Register(httpObserver)
+	}
+
+	return svc, nil
 }
 
 func applyMigrations(db *sql.DB, dir string) error {
