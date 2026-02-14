@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,17 +23,20 @@ type URLService struct {
 	repo            repository.URLRepository
 	baseURL         string
 	deleteURLWorker *worker.DeleteURLWorker
+	audit           audit.Publisher
 }
 
 func NewURLService(
 	repo repository.URLRepository,
 	baseURL string,
 	deleteURLWorker *worker.DeleteURLWorker,
+	auditPublisher audit.Publisher,
 ) *URLService {
 	return &URLService{
 		repo:            repo,
 		baseURL:         baseURL,
 		deleteURLWorker: deleteURLWorker,
+		audit:           auditPublisher,
 	}
 }
 
@@ -64,6 +68,13 @@ func (s *URLService) ShortenURL(url string, userID string) (string, *appError.HT
 	if isFound || (err != nil && errors.Is(err, repository.ErrorOnConflict)) {
 		return shortURL, appError.NewHTTPError(http.StatusConflict, "", nil)
 	}
+
+	s.audit.Notify(audit.Event{
+		TS:     time.Now().Unix(),
+		Action: "shorten",
+		UserID: userID,
+		URL:    validatedURL,
+	})
 
 	return shortURL, nil
 }
@@ -121,6 +132,13 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 			errors.New("URL has been deleted by the user"),
 		)
 	}
+
+	s.audit.Notify(audit.Event{
+		TS:     time.Now().Unix(),
+		Action: "follow",
+		UserID: urlPair.UserID,
+		URL:    urlPair.Long,
+	})
 
 	return urlPair.Long, nil
 }

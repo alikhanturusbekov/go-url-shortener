@@ -13,6 +13,8 @@ type Config struct {
 	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
 	DatabaseDSN      string `env:"DATABASE_DSN"`
 	AuthorizationKey string `env:"AUTHORIZATION_KEY"`
+	AuditFile        string `env:"AUDIT_FILE"`
+	AuditURL         string `env:"AUDIT_URL"`
 }
 
 func NewConfig() *Config {
@@ -23,6 +25,8 @@ func NewConfig() *Config {
 		FileStoragePath:  "",
 		DatabaseDSN:      "",
 		AuthorizationKey: "secret_auth_key",
+		AuditFile:        "something.txt",
+		AuditURL:         "",
 	}
 
 	if err := env.Parse(&config); err != nil {
@@ -34,6 +38,8 @@ func NewConfig() *Config {
 	flag.StringVar(&config.FileStoragePath, "f", config.FileStoragePath, "The file path for url pairs storage")
 	flag.StringVar(&config.DatabaseDSN, "d", config.DatabaseDSN, "Database connection string")
 	flag.StringVar(&config.AuthorizationKey, "ak", config.AuthorizationKey, "Authorization Key")
+	flag.StringVar(&config.AuditFile, "audit-file", config.AuditFile, "Path to audit log file")
+	flag.StringVar(&config.AuditURL, "audit-url", config.AuditURL, "Remote audit server URL")
 	flag.Parse()
 
 	return &config

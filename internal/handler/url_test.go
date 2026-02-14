@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
 	"github.com/google/uuid"
 	"io"
 	"log"
@@ -132,7 +133,7 @@ func TestShortenURLAsText(t *testing.T) {
 			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
 			go deleteURLWorker.Run(ctx)
 
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker, audit.NewNoop())
 			h := NewURLHandler(urlService, database).ShortenURLAsText
 			w := httptest.NewRecorder()
 			h(w, request)
@@ -216,7 +217,7 @@ func TestShortenURLAsJSON(t *testing.T) {
 			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
 			go deleteURLWorker.Run(ctx)
 
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker, audit.NewNoop())
 			h := NewURLHandler(urlService, database).ShortenURLAsJSON
 			w := httptest.NewRecorder()
 			h(w, request)
@@ -306,7 +307,7 @@ func TestResolveURL(t *testing.T) {
 			go deleteURLWorker.Run(ctx)
 
 			mux := http.NewServeMux()
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker, audit.NewNoop())
 			mux.HandleFunc("/{id}", NewURLHandler(urlService, database).ResolveURL)
 
 			request := httptest.NewRequest(http.MethodGet, "/"+tt.targetURL, nil)
@@ -381,7 +382,7 @@ func TestBatchShortenURL(t *testing.T) {
 			deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
 			go deleteURLWorker.Run(ctx)
 
-			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker)
+			urlService := service.NewURLService(urlRepo, testConfig.BaseURL, deleteURLWorker, audit.NewNoop())
 			h := NewURLHandler(urlService, database).BatchShortenURL
 			w := httptest.NewRecorder()
 			h(w, request)
