@@ -75,22 +75,26 @@ func run() error {
 
 	r := chi.NewRouter()
 
-	r.Use(logger.RequestLogger())
-	r.Use(compress.GzipCompressor())
-	r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
+	r.Mount("/debug", middleware.Profiler())
 
-	r.Get("/ping", urlHandler.Ping)
-	r.Get(`/{id}`, urlHandler.ResolveURL)
-	r.With(middleware.AllowContentType("text/plain")).
-		Post(`/`, urlHandler.ShortenURLAsText)
-	r.With(middleware.AllowContentType("application/json")).
-		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
-	r.With(middleware.AllowContentType("application/json")).
-		Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+	r.Group(func(r chi.Router) {
+		r.Use(logger.RequestLogger())
+		r.Use(compress.GzipCompressor())
+		r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
 
-	r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
-	r.With(middleware.AllowContentType("application/json")).
-		Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
+		r.Get("/ping", urlHandler.Ping)
+		r.Get(`/{id}`, urlHandler.ResolveURL)
+		r.With(middleware.AllowContentType("text/plain")).
+			Post(`/`, urlHandler.ShortenURLAsText)
+		r.With(middleware.AllowContentType("application/json")).
+			Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
+		r.With(middleware.AllowContentType("application/json")).
+			Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+
+		r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
+		r.With(middleware.AllowContentType("application/json")).
+			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
+	})
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)
