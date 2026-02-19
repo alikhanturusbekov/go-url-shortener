@@ -154,11 +154,13 @@ func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "need to authorize to access this method", http.StatusUnauthorized)
+		return
 	}
 
 	userURLs, err := h.service.GetUserURLs(userID)
 	if err != nil {
 		http.Error(w, "failed to fetch user URLs", http.StatusInternalServerError)
+		return
 	}
 
 	if len(userURLs) == 0 {
