@@ -83,12 +83,11 @@ func Example() {
 	body, _ := json.Marshal(input)
 
 	resp, _ = client.Post(ts.URL+"/api/shorten/batch", "application/json", bytes.NewBuffer(body))
+	fmt.Printf("POST /api/shorten/batch: %d\n", resp.StatusCode)
 	defer resp.Body.Close()
 
 	var result []BatchResponse
 	json.NewDecoder(resp.Body).Decode(&result)
-
-	fmt.Printf("POST /api/shorten/batch: %d\n", resp.StatusCode)
 	fmt.Printf("Batch items: %d\n", len(result))
 
 	// Output:
