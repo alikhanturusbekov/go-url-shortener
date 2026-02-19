@@ -4,15 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
-	"go.uber.org/zap"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
 type URLHandler struct {
