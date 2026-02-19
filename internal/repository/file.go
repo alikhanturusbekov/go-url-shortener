@@ -3,11 +3,12 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"io"
 	"os"
 	"slices"
 	"sync"
+
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 )
 
 type URLFileRepository struct {

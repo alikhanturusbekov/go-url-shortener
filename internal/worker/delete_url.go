@@ -2,11 +2,11 @@ package worker
 
 import (
 	"context"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 	"time"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
 type DeleteURLWorker struct {

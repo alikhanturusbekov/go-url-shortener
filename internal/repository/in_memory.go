@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"slices"
 	"sync"
+
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 )
 
 type URLInMemoryRepository struct {

@@ -6,8 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
@@ -19,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,6 +27,7 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
 )
 
 var testConfig *config.Config
