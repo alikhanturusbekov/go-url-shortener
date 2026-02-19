@@ -1,3 +1,4 @@
+// Package config provides application configuration loading
 package config
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
+// Config structure of application configuration
 type Config struct {
 	Address          string `env:"SERVER_ADDRESS"`
 	BaseURL          string `env:"BASE_URL"`
@@ -18,6 +20,7 @@ type Config struct {
 	AuditURL         string `env:"AUDIT_URL"`
 }
 
+// NewConfig loads configuration from defaults, environment variables and flags
 func NewConfig() *Config {
 	config := Config{
 		Address:          ":8080",

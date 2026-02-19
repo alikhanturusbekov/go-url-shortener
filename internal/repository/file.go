@@ -11,12 +11,14 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 )
 
+// URLFileRepository implements URLRepository using a JSON file
 type URLFileRepository struct {
 	filePath string
 	data     []*model.URLPair
 	mu       sync.RWMutex
 }
 
+// NewURLFileRepository creates a new URLFileRepository instance
 func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	repo := &URLFileRepository{
 		filePath: filePath,
@@ -32,6 +34,7 @@ func NewURLFileRepository(filePath string) (*URLFileRepository, error) {
 	return repo, nil
 }
 
+// Save stores a single URL pair
 func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -62,6 +65,7 @@ func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) erro
 	return nil
 }
 
+// GetByShort retrieves a URL pair by its short URL
 func (r *URLFileRepository) GetByShort(_ context.Context, short string) (*model.URLPair, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -75,6 +79,7 @@ func (r *URLFileRepository) GetByShort(_ context.Context, short string) (*model.
 	return nil, false
 }
 
+// SaveMany stores multiple URL pairs
 func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPair) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -108,6 +113,7 @@ func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPai
 	return nil
 }
 
+// GetAllByUserID returns all URL pairs for a user
 func (r *URLFileRepository) GetAllByUserID(_ context.Context, userID string) ([]*model.URLPair, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -123,6 +129,7 @@ func (r *URLFileRepository) GetAllByUserID(_ context.Context, userID string) ([]
 	return result, nil
 }
 
+// DeleteByShorts marks URL pairs as deleted for a user
 func (r *URLFileRepository) DeleteByShorts(ctx context.Context, userID string, shorts []string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -141,6 +148,7 @@ func (r *URLFileRepository) DeleteByShorts(ctx context.Context, userID string, s
 	return nil
 }
 
+// syncFile rewrites the file with current in-memory data
 func (r *URLFileRepository) syncFile(ctx context.Context) error {
 	err := os.Truncate(r.filePath, 0)
 	if err != nil {
@@ -155,6 +163,7 @@ func (r *URLFileRepository) syncFile(ctx context.Context) error {
 	return nil
 }
 
+// load reads existing URL pairs from the file
 func (r *URLFileRepository) load() error {
 	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -173,6 +182,7 @@ func (r *URLFileRepository) load() error {
 	return nil
 }
 
+// addRecord appends a JSON record to the file
 func (r *URLFileRepository) addRecord(file *os.File, itemJSON []byte, isFirst bool) error {
 	var err error
 	var firstAppendItem string

@@ -9,11 +9,13 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+// DeleteURLWorker processes URL deletion tasks asynchronously
 type DeleteURLWorker struct {
 	repository repository.URLRepository
 	in         chan model.DeleteURLTask
 }
 
+// NewDeleteURLWorker creates a new DeleteURLWorker instance
 func NewDeleteURLWorker(
 	repository repository.URLRepository,
 	bufferSize int,
@@ -24,10 +26,12 @@ func NewDeleteURLWorker(
 	}
 }
 
+// Enqueue adds a deletion task to the worker queue
 func (w *DeleteURLWorker) Enqueue(task model.DeleteURLTask) {
 	w.in <- task
 }
 
+// Run starts the worker loop and processes tasks in batches
 func (w *DeleteURLWorker) Run(ctx context.Context) {
 	const (
 		maxBatchSize = 100
