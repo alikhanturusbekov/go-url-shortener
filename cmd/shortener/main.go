@@ -1,28 +1,32 @@
+// Package main starts the URL shortener HTTP server
 package main
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
+
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/compress"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+// main application entry point
 func main() {
 	log.Print("Starting the app...")
 
@@ -33,6 +37,7 @@ func main() {
 	}
 }
 
+// run initializes dependencies and starts the HTTP server
 func run() error {
 	appConfig := config.NewConfig()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,35 +65,46 @@ func run() error {
 	}
 	defer cleanUp()
 
+	auditPublisher, err := setupAudit(appConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer auditPublisher.Close()
+
 	deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
 	go deleteURLWorker.Run(ctx)
 
-	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker)
+	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker, auditPublisher)
 	urlHandler := handler.NewURLHandler(urlService, database)
 
 	r := chi.NewRouter()
 
-	r.Use(logger.RequestLogger())
-	r.Use(compress.GzipCompressor())
-	r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
+	r.Mount("/debug", middleware.Profiler())
 
-	r.Get("/ping", urlHandler.Ping)
-	r.Get(`/{id}`, urlHandler.ResolveURL)
-	r.With(middleware.AllowContentType("text/plain")).
-		Post(`/`, urlHandler.ShortenURLAsText)
-	r.With(middleware.AllowContentType("application/json")).
-		Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
-	r.With(middleware.AllowContentType("application/json")).
-		Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+	r.Group(func(r chi.Router) {
+		r.Use(logger.RequestLogger())
+		r.Use(compress.GzipCompressor())
+		r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
 
-	r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
-	r.With(middleware.AllowContentType("application/json")).
-		Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
+		r.Get("/ping", urlHandler.Ping)
+		r.Get(`/{id}`, urlHandler.ResolveURL)
+		r.With(middleware.AllowContentType("text/plain")).
+			Post(`/`, urlHandler.ShortenURLAsText)
+		r.With(middleware.AllowContentType("application/json")).
+			Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
+		r.With(middleware.AllowContentType("application/json")).
+			Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
+
+		r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
+		r.With(middleware.AllowContentType("application/json")).
+			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
+	})
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)
 }
 
+// setupRepository initializes the storage based on configuration
 func setupRepository(config *config.Config) (repository.URLRepository, func(), error) {
 	if config.DatabaseDSN != "" {
 		logger.Log.Info("Using the database for storage...")
@@ -117,6 +133,31 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 	return repository.NewURLInMemoryRepository(), func() {}, nil
 }
 
+// setupAudit configures the audit events publisher
+func setupAudit(config *config.Config) (audit.Publisher, error) {
+	if config.AuditFile == "" && config.AuditURL == "" {
+		return audit.NewNoop(), nil
+	}
+
+	svc := audit.NewService(100)
+
+	if config.AuditFile != "" {
+		fileObserver, err := audit.NewFileObserver(config.AuditFile)
+		if err != nil {
+			return nil, err
+		}
+		svc.Register(fileObserver)
+	}
+
+	if config.AuditURL != "" {
+		httpObserver := audit.NewHTTPObserver(config.AuditURL)
+		svc.Register(httpObserver)
+	}
+
+	return svc, nil
+}
+
+// applyMigrations executes SQL migrations from the migrations directory
 func applyMigrations(db *sql.DB, dir string) error {
 	_, err := db.Exec(`
         CREATE TABLE IF NOT EXISTS schema_migrations (

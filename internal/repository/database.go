@@ -12,14 +12,17 @@ import (
 	"github.com/lib/pq"
 )
 
+// URLDatabaseRepository implements URLRepository using PostgreSQL
 type URLDatabaseRepository struct {
 	db *sql.DB
 }
 
+// NewURLDatabaseRepository creates a new URLDatabaseRepository instance
 func NewURLDatabaseRepository(db *sql.DB) *URLDatabaseRepository {
 	return &URLDatabaseRepository{db: db}
 }
 
+// Save stores a single URL pair
 func (r *URLDatabaseRepository) Save(ctx context.Context, urlPair *model.URLPair) error {
 	query := `
         INSERT INTO url_pairs (uid, short, long, user_id, is_deleted)
@@ -42,6 +45,7 @@ func (r *URLDatabaseRepository) Save(ctx context.Context, urlPair *model.URLPair
 	return err
 }
 
+// GetByShort retrieves a URL pair by its short URL
 func (r *URLDatabaseRepository) GetByShort(ctx context.Context, short string) (*model.URLPair, bool) {
 	var result model.URLPair
 
@@ -66,6 +70,7 @@ func (r *URLDatabaseRepository) GetByShort(ctx context.Context, short string) (*
 	return &result, err == nil
 }
 
+// SaveMany stores multiple URL pairs
 func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.URLPair) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -89,6 +94,7 @@ func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.
 	return tx.Commit()
 }
 
+// GetAllByUserID returns all URL pairs for a user
 func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID string) ([]*model.URLPair, error) {
 	var result []*model.URLPair
 
@@ -119,6 +125,7 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID strin
 	return result, nil
 }
 
+// DeleteByShorts marks URL pairs as deleted for a user
 func (r *URLDatabaseRepository) DeleteByShorts(ctx context.Context, userID string, shorts []string) error {
 	query := `
 		UPDATE url_pairs
@@ -136,6 +143,7 @@ func (r *URLDatabaseRepository) DeleteByShorts(ctx context.Context, userID strin
 	return err
 }
 
+// Close closes the database connection
 func (r *URLDatabaseRepository) Close() error {
 	return r.db.Close()
 }
