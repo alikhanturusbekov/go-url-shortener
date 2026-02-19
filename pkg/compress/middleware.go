@@ -21,6 +21,7 @@ var gzipReaderPool = sync.Pool{
 	},
 }
 
+// GzipCompressor provides HTTP middleware for gzip compression and decompression
 func GzipCompressor() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,15 +67,18 @@ func GzipCompressor() func(http.Handler) http.Handler {
 	}
 }
 
+// gzipResponseWriter wraps http.ResponseWriter to write compressed data
 type gzipResponseWriter struct {
 	http.ResponseWriter
 	writer *gzip.Writer
 }
 
+// Write writes compressed response data
 func (g *gzipResponseWriter) Write(b []byte) (int, error) {
 	return g.writer.Write(b)
 }
 
+// readCloser combines a Reader and Closer
 type readCloser struct {
 	io.Reader
 	io.Closer

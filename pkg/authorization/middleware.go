@@ -19,17 +19,20 @@ const (
 	tokenTTL   = 30 * 24 * time.Hour
 )
 
+// Claims represents JWT claims containing a user ID
 type Claims struct {
 	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
+// UserIDFromContext extracts the user ID from context
 func UserIDFromContext(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(userIDContextKey).(string)
 
 	return userID, ok
 }
 
+// AuthMiddleware provides JWT-based authentication middleware
 func AuthMiddleware(jwtKey []byte) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +60,7 @@ func AuthMiddleware(jwtKey []byte) func(http.Handler) http.Handler {
 	}
 }
 
+// createToken generates a signed JWT for the given user ID
 func createToken(userID string, jwtKey []byte) (string, error) {
 	now := time.Now()
 
@@ -72,6 +76,7 @@ func createToken(userID string, jwtKey []byte) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
+// parseToken validates and parses a JWT string
 func parseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 	claims := &Claims{}
 
@@ -90,6 +95,7 @@ func parseToken(tokenStr string, jwtKey []byte) (*Claims, error) {
 	return claims, nil
 }
 
+// setAuthCookie sets the authentication cookie
 func setAuthCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,

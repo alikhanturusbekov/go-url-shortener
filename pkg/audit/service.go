@@ -5,12 +5,14 @@ import (
 	"sync"
 )
 
+// Service implements Publisher and dispatches events to registered observers
 type Service struct {
 	observers []Observer
 	ch        chan Event
 	wg        sync.WaitGroup
 }
 
+// NewService creates a new audit service with a buffered channel
 func NewService(buffer int) *Service {
 	s := &Service{
 		ch: make(chan Event, buffer),
@@ -22,10 +24,12 @@ func NewService(buffer int) *Service {
 	return s
 }
 
+// Register adds an observer to receive audit events
 func (s *Service) Register(o Observer) {
 	s.observers = append(s.observers, o)
 }
 
+// Notify enqueues an audit event for asynchronous delivery
 func (s *Service) Notify(event Event) {
 	select {
 	case s.ch <- event:
@@ -34,6 +38,7 @@ func (s *Service) Notify(event Event) {
 	}
 }
 
+// worker processes events and forwards them to observers
 func (s *Service) worker() {
 	defer s.wg.Done()
 
@@ -46,6 +51,7 @@ func (s *Service) worker() {
 	}
 }
 
+// Close stops the service and waits for pending events to be processed
 func (s *Service) Close() {
 	close(s.ch)
 	s.wg.Wait()

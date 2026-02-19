@@ -8,11 +8,13 @@ import (
 	"time"
 )
 
+// HTTPObserver structure to observe audit events and sends them to audit service
 type HTTPObserver struct {
 	client *http.Client
 	url    string
 }
 
+// NewHTTPObserver creates a new HTTPObserver
 func NewHTTPObserver(url string) *HTTPObserver {
 	return &HTTPObserver{
 		client: &http.Client{Timeout: 5 * time.Second},
@@ -20,6 +22,7 @@ func NewHTTPObserver(url string) *HTTPObserver {
 	}
 }
 
+// Send sends event logs to audit service
 func (h *HTTPObserver) Send(event Event) error {
 	data, err := json.Marshal(event)
 	if err != nil {

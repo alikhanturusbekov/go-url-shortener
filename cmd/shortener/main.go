@@ -1,3 +1,4 @@
+// Package main starts the URL shortener HTTP server
 package main
 
 import (
@@ -25,6 +26,7 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+// main application entry point
 func main() {
 	log.Print("Starting the app...")
 
@@ -35,6 +37,7 @@ func main() {
 	}
 }
 
+// run initializes dependencies and starts the HTTP server
 func run() error {
 	appConfig := config.NewConfig()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -101,6 +104,7 @@ func run() error {
 	return http.ListenAndServe(appConfig.Address, r)
 }
 
+// setupRepository initializes the storage based on configuration
 func setupRepository(config *config.Config) (repository.URLRepository, func(), error) {
 	if config.DatabaseDSN != "" {
 		logger.Log.Info("Using the database for storage...")
@@ -129,6 +133,7 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 	return repository.NewURLInMemoryRepository(), func() {}, nil
 }
 
+// setupAudit configures the audit events publisher
 func setupAudit(config *config.Config) (audit.Publisher, error) {
 	if config.AuditFile == "" && config.AuditURL == "" {
 		return audit.NewNoop(), nil
@@ -152,6 +157,7 @@ func setupAudit(config *config.Config) (audit.Publisher, error) {
 	return svc, nil
 }
 
+// applyMigrations executes SQL migrations from the migrations directory
 func applyMigrations(db *sql.DB, dir string) error {
 	_, err := db.Exec(`
         CREATE TABLE IF NOT EXISTS schema_migrations (
