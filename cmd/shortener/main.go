@@ -66,7 +66,7 @@ func run() error {
 	}
 	defer cleanUp()
 
-	auditPublisher, closers, err := setupAudit(appConfig)
+	auditPublisher, closers, err := setupAudit(ctx, appConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -139,12 +139,12 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 }
 
 // setupAudit configures the audit events publisher
-func setupAudit(config *config.Config) (audit.Publisher, []io.Closer, error) {
+func setupAudit(ctx context.Context, config *config.Config) (audit.Publisher, []io.Closer, error) {
 	if config.AuditFile == "" && config.AuditURL == "" {
 		return audit.NewNoop(), nil, nil
 	}
 
-	svc := audit.NewService(100)
+	svc := audit.NewService(ctx, 100)
 
 	var closers []io.Closer
 
