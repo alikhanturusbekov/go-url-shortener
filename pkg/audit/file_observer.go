@@ -30,3 +30,7 @@ func (f *FileObserver) Send(event Event) error {
 	_, err = f.file.Write(append(data, '\n'))
 	return err
 }
+
+func (f *FileObserver) Close() error {
+	return f.file.Close()
+}

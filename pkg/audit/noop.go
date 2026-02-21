@@ -12,4 +12,6 @@ func NewNoop() *Noop {
 func (n *Noop) Notify(event Event) {}
 
 // Close performs no action.
-func (n *Noop) Close() {}
+func (n *Noop) Close() error {
+	return nil
+}

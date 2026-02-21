@@ -10,6 +10,7 @@ type Service struct {
 	observers []Observer
 	ch        chan Event
 	wg        sync.WaitGroup
+	closeOnce sync.Once
 }
 
 // NewService creates a new audit service with a buffered channel
@@ -52,7 +53,10 @@ func (s *Service) worker() {
 }
 
 // Close stops the service and waits for pending events to be processed
-func (s *Service) Close() {
-	close(s.ch)
+func (s *Service) Close() error {
+	s.closeOnce.Do(func() {
+		close(s.ch)
+	})
 	s.wg.Wait()
+	return nil
 }

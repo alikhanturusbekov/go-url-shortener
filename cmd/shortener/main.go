@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -65,11 +66,15 @@ func run() error {
 	}
 	defer cleanUp()
 
-	auditPublisher, err := setupAudit(appConfig)
+	auditPublisher, closers, err := setupAudit(appConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer auditPublisher.Close()
+	defer func() {
+		for _, closer := range closers {
+			_ = closer.Close()
+		}
+	}()
 
 	deleteURLWorker := worker.NewDeleteURLWorker(urlRepo, 500)
 	go deleteURLWorker.Run(ctx)
@@ -134,19 +139,22 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 }
 
 // setupAudit configures the audit events publisher
-func setupAudit(config *config.Config) (audit.Publisher, error) {
+func setupAudit(config *config.Config) (audit.Publisher, []io.Closer, error) {
 	if config.AuditFile == "" && config.AuditURL == "" {
-		return audit.NewNoop(), nil
+		return audit.NewNoop(), nil, nil
 	}
 
 	svc := audit.NewService(100)
 
+	var closers []io.Closer
+
 	if config.AuditFile != "" {
 		fileObserver, err := audit.NewFileObserver(config.AuditFile)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		svc.Register(fileObserver)
+		closers = append(closers, fileObserver)
 	}
 
 	if config.AuditURL != "" {
@@ -154,7 +162,9 @@ func setupAudit(config *config.Config) (audit.Publisher, error) {
 		svc.Register(httpObserver)
 	}
 
-	return svc, nil
+	closers = append(closers, svc)
+
+	return svc, closers, nil
 }
 
 // applyMigrations executes SQL migrations from the migrations directory

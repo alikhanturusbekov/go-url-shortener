@@ -6,5 +6,5 @@ type Publisher interface {
 	Notify(event Event)
 
 	// Close closes publisher
-	Close()
+	Close() error
 }
