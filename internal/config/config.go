@@ -29,7 +29,7 @@ func NewConfig() *Config {
 		FileStoragePath:  "",
 		DatabaseDSN:      "",
 		AuthorizationKey: "secret_auth_key",
-		AuditFile:        "something.txt",
+		AuditFile:        "",
 		AuditURL:         "",
 	}
 
