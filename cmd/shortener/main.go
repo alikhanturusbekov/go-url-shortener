@@ -40,7 +40,11 @@ func main() {
 
 // run initializes dependencies and starts the HTTP server
 func run() error {
-	appConfig := config.NewConfig()
+	appConfig, err := config.NewConfig()
+	if err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -50,7 +54,7 @@ func run() error {
 
 	database, err := sql.Open("pgx", appConfig.DatabaseDSN)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		return err
 	}
 	defer database.Close()
 
@@ -68,7 +72,7 @@ func run() error {
 
 	auditPublisher, closers, err := setupAudit(ctx, appConfig)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer func() {
 		for _, closer := range closers {
