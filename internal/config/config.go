@@ -1,11 +1,14 @@
+// Package config provides application configuration loading
 package config
 
 import (
 	"flag"
-	"github.com/caarlos0/env/v6"
 	"log"
+
+	"github.com/caarlos0/env/v6"
 )
 
+// Config structure of application configuration
 type Config struct {
 	Address          string `env:"SERVER_ADDRESS"`
 	BaseURL          string `env:"BASE_URL"`
@@ -13,8 +16,11 @@ type Config struct {
 	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
 	DatabaseDSN      string `env:"DATABASE_DSN"`
 	AuthorizationKey string `env:"AUTHORIZATION_KEY"`
+	AuditFile        string `env:"AUDIT_FILE"`
+	AuditURL         string `env:"AUDIT_URL"`
 }
 
+// NewConfig loads configuration from defaults, environment variables and flags
 func NewConfig() *Config {
 	config := Config{
 		Address:          ":8080",
@@ -23,6 +29,8 @@ func NewConfig() *Config {
 		FileStoragePath:  "",
 		DatabaseDSN:      "",
 		AuthorizationKey: "secret_auth_key",
+		AuditFile:        "",
+		AuditURL:         "",
 	}
 
 	if err := env.Parse(&config); err != nil {
@@ -34,6 +42,8 @@ func NewConfig() *Config {
 	flag.StringVar(&config.FileStoragePath, "f", config.FileStoragePath, "The file path for url pairs storage")
 	flag.StringVar(&config.DatabaseDSN, "d", config.DatabaseDSN, "Database connection string")
 	flag.StringVar(&config.AuthorizationKey, "ak", config.AuthorizationKey, "Authorization Key")
+	flag.StringVar(&config.AuditFile, "audit-file", config.AuditFile, "Path to audit log file")
+	flag.StringVar(&config.AuditURL, "audit-url", config.AuditURL, "Remote audit server URL")
 	flag.Parse()
 
 	return &config

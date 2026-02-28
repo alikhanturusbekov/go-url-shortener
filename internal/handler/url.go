@@ -1,25 +1,30 @@
+// Package handler provides HTTP handlers for URL operations.
 package handler
 
 import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
-	"go.uber.org/zap"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+// URLHandler handles HTTP requests related to URLs
 type URLHandler struct {
 	service  *service.URLService
 	database *sql.DB
 }
 
+// NewURLHandler creates a new URLHandler instance
 func NewURLHandler(service *service.URLService, database *sql.DB) *URLHandler {
 	return &URLHandler{
 		service:  service,
@@ -27,6 +32,7 @@ func NewURLHandler(service *service.URLService, database *sql.DB) *URLHandler {
 	}
 }
 
+// Ping checks database connectivity
 func (h *URLHandler) Ping(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
@@ -39,6 +45,7 @@ func (h *URLHandler) Ping(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// ShortenURLAsText creates a shortened URL from plain text input
 func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -72,6 +79,7 @@ func (h *URLHandler) ShortenURLAsText(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ShortenURLAsJSON creates a shortened URL from JSON input
 func (h *URLHandler) ShortenURLAsJSON(w http.ResponseWriter, r *http.Request) {
 	var req model.Request
 	dec := json.NewDecoder(r.Body)
@@ -103,6 +111,7 @@ func (h *URLHandler) ShortenURLAsJSON(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ResolveURL redirects to the original URL
 func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
@@ -115,6 +124,7 @@ func (h *URLHandler) ResolveURL(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
+// BatchShortenURL creates multiple shortened URLs in one request
 func (h *URLHandler) BatchShortenURL(w http.ResponseWriter, r *http.Request) {
 	var req []model.BatchShortenURLRequest
 	dec := json.NewDecoder(r.Body)
@@ -139,15 +149,18 @@ func (h *URLHandler) BatchShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUserURLs returns all URLs shortened by the user
 func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "need to authorize to access this method", http.StatusUnauthorized)
+		return
 	}
 
 	userURLs, err := h.service.GetUserURLs(userID)
 	if err != nil {
 		http.Error(w, "failed to fetch user URLs", http.StatusInternalServerError)
+		return
 	}
 
 	if len(userURLs) == 0 {
@@ -164,6 +177,7 @@ func (h *URLHandler) GetUserURLs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteUserURLs deletes multiple URLs for the user
 func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {
@@ -186,6 +200,7 @@ func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// getUserID extracts the user ID from request context
 func (h *URLHandler) getUserID(r *http.Request) string {
 	userID, ok := authorization.UserIDFromContext(r.Context())
 	if !ok {

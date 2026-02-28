@@ -7,36 +7,42 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/alikhanturusbekov/go-url-shortener/internal/model"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
 	appError "github.com/alikhanturusbekov/go-url-shortener/pkg/error"
 )
 
+// URLService provides URL shortening business logic
 type URLService struct {
 	repo            repository.URLRepository
 	baseURL         string
 	deleteURLWorker *worker.DeleteURLWorker
+	audit           audit.Publisher
 }
 
+// NewURLService creates a new URLService instance
 func NewURLService(
 	repo repository.URLRepository,
 	baseURL string,
 	deleteURLWorker *worker.DeleteURLWorker,
+	auditPublisher audit.Publisher,
 ) *URLService {
 	return &URLService{
 		repo:            repo,
 		baseURL:         baseURL,
 		deleteURLWorker: deleteURLWorker,
+		audit:           auditPublisher,
 	}
 }
 
-// ShortenURL Хэширует url и возвращает первые 7 символов
+// ShortenURL validates and shortens a URL
 func (s *URLService) ShortenURL(url string, userID string) (string, *appError.HTTPError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2000*time.Millisecond)
 	defer cancel()
@@ -65,9 +71,17 @@ func (s *URLService) ShortenURL(url string, userID string) (string, *appError.HT
 		return shortURL, appError.NewHTTPError(http.StatusConflict, "", nil)
 	}
 
+	s.audit.Notify(audit.Event{
+		TS:     time.Now().Unix(),
+		Action: "shorten",
+		UserID: userID,
+		URL:    validatedURL,
+	})
+
 	return shortURL, nil
 }
 
+// BatchShortenURL shortens multiple URLs in a single request.
 func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userID string) ([]*model.BatchShortenURLResponse, *appError.HTTPError) {
 	results := make([]*model.BatchShortenURLResponse, 0, len(items))
 	urlPairs := make([]*model.URLPair, 0, len(items))
@@ -100,6 +114,7 @@ func (s *URLService) BatchShortenURL(items []model.BatchShortenURLRequest, userI
 	return results, nil
 }
 
+// ResolveShortURL resolves a short code to the original URL.
 func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -122,9 +137,17 @@ func (s *URLService) ResolveShortURL(shortURL string) (string, *appError.HTTPErr
 		)
 	}
 
+	s.audit.Notify(audit.Event{
+		TS:     time.Now().Unix(),
+		Action: "follow",
+		UserID: urlPair.UserID,
+		URL:    urlPair.Long,
+	})
+
 	return urlPair.Long, nil
 }
 
+// GetUserURLs returns all URLs created by a user
 func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *appError.HTTPError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 	defer cancel()
@@ -146,6 +169,7 @@ func (s *URLService) GetUserURLs(userID string) ([]*model.URLPairsResponse, *app
 	return results, nil
 }
 
+// DeleteUserURLs enqueues URL deletion tasks for the user
 func (s *URLService) DeleteUserURLs(userID string, shorts []string) *appError.HTTPError {
 	for _, short := range shorts {
 		s.deleteURLWorker.Enqueue(model.DeleteURLTask{
@@ -157,6 +181,7 @@ func (s *URLService) DeleteUserURLs(userID string, shorts []string) *appError.HT
 	return nil
 }
 
+// validateURL validates and normalizes a URL string
 func (s *URLService) validateURL(originalURL string) (string, error) {
 	trimmedURL := strings.TrimSpace(originalURL)
 	if trimmedURL == "" {
@@ -175,6 +200,7 @@ func (s *URLService) validateURL(originalURL string) (string, error) {
 	return resultURL.String(), nil
 }
 
+// generateShortURLPath generates a unique short path
 func (s *URLService) generateShortURLPath(ctx context.Context, originalURL string) (string, error) {
 	urlPath := s.hashURL(originalURL)
 
@@ -195,6 +221,7 @@ func (s *URLService) generateShortURLPath(ctx context.Context, originalURL strin
 	}
 }
 
+// addSalt appends random data to avoid hash collisions
 func (s *URLService) addSalt(url string) (string, error) {
 	b := make([]byte, 4)
 	_, err := rand.Read(b)
@@ -205,6 +232,7 @@ func (s *URLService) addSalt(url string) (string, error) {
 	return url + ":" + base64.RawURLEncoding.EncodeToString(b), nil
 }
 
+// hashURL generates a short hash for a URL
 func (s *URLService) hashURL(url string) string {
 	hash := sha1.Sum([]byte(url))
 	return base64.URLEncoding.EncodeToString(hash[:])[:7]
