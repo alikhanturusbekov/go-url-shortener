@@ -7,7 +7,7 @@ import (
 
 // TestParseFile_ResetableStruct verifies parsing of ResetableStruct
 func TestParseFile_ResetableStruct(t *testing.T) {
-	path := filepath.Join("testdata", "resetable.go")
+	path := filepath.Join("testdata", "example.go")
 
 	structs, err := ParseFile(path)
 	if err != nil {
