@@ -27,8 +27,20 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+var (
+	BuildVersion string = "N/A"
+	BuildDate    string = "N/A"
+	BuildCommit  string = "N/A"
+)
+
 // main application entry point
 func main() {
+	// build information
+	log.Printf("Build version: %s\n", BuildVersion)
+	log.Printf("Build date:    %s\n", BuildDate)
+	log.Printf("Build commit:  %s\n", BuildCommit)
+	log.Println()
+
 	log.Print("Starting the app...")
 
 	if err := run(); err != nil {
