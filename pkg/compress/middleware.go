@@ -5,21 +5,38 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
+
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/pool"
 )
 
-var gzipWriterPool = sync.Pool{
-	New: func() interface{} {
-		w, _ := gzip.NewWriterLevel(io.Discard, gzip.HuffmanOnly)
-		return w
-	},
+// PooledGzipWriter wraps gzip.Writer to implement Resetter.
+type PooledGzipWriter struct {
+	W *gzip.Writer
 }
 
-var gzipReaderPool = sync.Pool{
-	New: func() interface{} {
-		return new(gzip.Reader)
-	},
+// Reset resets the writer to a clean state
+func (p *PooledGzipWriter) Reset() {
+	p.W.Reset(io.Discard)
 }
+
+// PooledGzipReader wraps gzip.Reader to implement Resetter.
+type PooledGzipReader struct {
+	R *gzip.Reader
+}
+
+// Reset closes the reader
+func (p *PooledGzipReader) Reset() {
+	_ = p.R.Close()
+}
+
+var gzipWriterPool = pool.New(func() *PooledGzipWriter {
+	w, _ := gzip.NewWriterLevel(io.Discard, gzip.HuffmanOnly)
+	return &PooledGzipWriter{W: w}
+})
+
+var gzipReaderPool = pool.New(func() *PooledGzipReader {
+	return &PooledGzipReader{R: new(gzip.Reader)}
+})
 
 // GzipCompressor provides HTTP middleware for gzip compression and decompression
 func GzipCompressor() func(http.Handler) http.Handler {
@@ -27,17 +44,17 @@ func GzipCompressor() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Request Decompression
 			if strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
-				gr := gzipReaderPool.Get().(*gzip.Reader)
-				if err := gr.Reset(r.Body); err != nil {
+				gr := gzipReaderPool.Get()
+				if err := gr.R.Reset(r.Body); err != nil {
 					http.Error(w, "invalid gzip body", http.StatusBadRequest)
 					return
 				}
 				defer func() {
-					gr.Close()
+					gr.R.Close()
 					gzipReaderPool.Put(gr)
 				}()
 				r.Body = &readCloser{
-					Reader: gr,
+					Reader: gr.R,
 					Closer: r.Body,
 				}
 			}
@@ -48,18 +65,19 @@ func GzipCompressor() func(http.Handler) http.Handler {
 				return
 			}
 
-			gz := gzipWriterPool.Get().(*gzip.Writer)
-			defer gzipWriterPool.Put(gz)
-
-			gz.Reset(w)
-			defer gz.Close()
+			gz := gzipWriterPool.Get()
+			gz.W.Reset(w)
+			defer func() {
+				gz.W.Close()
+				gzipWriterPool.Put(gz)
+			}()
 
 			w.Header().Set("Content-Encoding", "gzip")
 			w.Header().Del("Content-Length")
 
 			gzw := &gzipResponseWriter{
 				ResponseWriter: w,
-				writer:         gz,
+				writer:         gz.W,
 			}
 
 			next.ServeHTTP(gzw, r)
