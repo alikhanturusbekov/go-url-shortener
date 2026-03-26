@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-// EnsureCertificates проверяет наличие сертификата и ключа
-// Если файлов нет, генерирует сертификат и ключ указанном пути
+// EnsureCertificates checks the certificates
+// if not exist, it generates the certificate and the key in the given filepath
 func EnsureCertificates(certPath, keyPath string) error {
 	if certPath == "" || keyPath == "" {
 		return fmt.Errorf("certificate path and key path must be set")
