@@ -3,8 +3,6 @@ package config
 
 import (
 	"flag"
-	"log"
-
 	"github.com/caarlos0/env/v6"
 )
 
@@ -21,7 +19,7 @@ type Config struct {
 }
 
 // NewConfig loads configuration from defaults, environment variables and flags
-func NewConfig() *Config {
+func NewConfig() (*Config, error) {
 	config := Config{
 		Address:          ":8080",
 		BaseURL:          "http://localhost:8080",
@@ -34,7 +32,7 @@ func NewConfig() *Config {
 	}
 
 	if err := env.Parse(&config); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	flag.StringVar(&config.Address, "a", config.Address, "HTTP server start address")
@@ -46,5 +44,5 @@ func NewConfig() *Config {
 	flag.StringVar(&config.AuditURL, "audit-url", config.AuditURL, "Remote audit server URL")
 	flag.Parse()
 
-	return &config
+	return &config, nil
 }

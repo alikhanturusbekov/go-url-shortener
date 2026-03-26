@@ -27,8 +27,20 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+var (
+	BuildVersion string = "N/A"
+	BuildDate    string = "N/A"
+	BuildCommit  string = "N/A"
+)
+
 // main application entry point
 func main() {
+	// build information
+	log.Printf("Build version: %s\n", BuildVersion)
+	log.Printf("Build date:    %s\n", BuildDate)
+	log.Printf("Build commit:  %s\n", BuildCommit)
+	log.Println()
+
 	log.Print("Starting the app...")
 
 	if err := run(); err != nil {
@@ -40,7 +52,11 @@ func main() {
 
 // run initializes dependencies and starts the HTTP server
 func run() error {
-	appConfig := config.NewConfig()
+	appConfig, err := config.NewConfig()
+	if err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -50,7 +66,7 @@ func run() error {
 
 	database, err := sql.Open("pgx", appConfig.DatabaseDSN)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		return err
 	}
 	defer database.Close()
 
@@ -68,7 +84,7 @@ func run() error {
 
 	auditPublisher, closers, err := setupAudit(ctx, appConfig)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer func() {
 		for _, closer := range closers {
