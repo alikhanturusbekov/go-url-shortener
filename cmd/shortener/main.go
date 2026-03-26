@@ -5,16 +5,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/certs"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"go.uber.org/zap"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
@@ -120,6 +120,25 @@ func run() error {
 		r.With(middleware.AllowContentType("application/json")).
 			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
 	})
+
+	if appConfig.EnableHTTPS {
+		if err := certs.EnsureCertificates(appConfig.HTTPSCertFile, appConfig.HTTPSKeyFile); err != nil {
+			return fmt.Errorf("ensure certificates: %w", err)
+		}
+
+		logger.Log.Info("starting HTTPS server",
+			zap.String("address", appConfig.Address),
+			zap.String("cert_file", appConfig.HTTPSCertFile),
+			zap.String("key_file", appConfig.HTTPSKeyFile),
+		)
+
+		return http.ListenAndServeTLS(
+			appConfig.Address,
+			appConfig.HTTPSCertFile,
+			appConfig.HTTPSKeyFile,
+			r,
+		)
+	}
 
 	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
 	return http.ListenAndServe(appConfig.Address, r)

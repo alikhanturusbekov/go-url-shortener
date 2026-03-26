@@ -4,6 +4,7 @@ package config
 import (
 	"flag"
 	"github.com/caarlos0/env/v6"
+	"strings"
 )
 
 // Config structure of application configuration
@@ -16,6 +17,9 @@ type Config struct {
 	AuthorizationKey string `env:"AUTHORIZATION_KEY"`
 	AuditFile        string `env:"AUDIT_FILE"`
 	AuditURL         string `env:"AUDIT_URL"`
+	EnableHTTPS      bool   `env:"ENABLE_HTTPS"`
+	HTTPSCertFile    string `env:"HTTPS_CERT_FILE"`
+	HTTPSKeyFile     string `env:"HTTPS_KEY_FILE"`
 }
 
 // NewConfig loads configuration from defaults, environment variables and flags
@@ -29,6 +33,9 @@ func NewConfig() (*Config, error) {
 		AuthorizationKey: "secret_auth_key",
 		AuditFile:        "",
 		AuditURL:         "",
+		EnableHTTPS:      false,
+		HTTPSCertFile:    "certs/server.crt",
+		HTTPSKeyFile:     "certs/server.key",
 	}
 
 	if err := env.Parse(&config); err != nil {
@@ -42,7 +49,14 @@ func NewConfig() (*Config, error) {
 	flag.StringVar(&config.AuthorizationKey, "ak", config.AuthorizationKey, "Authorization Key")
 	flag.StringVar(&config.AuditFile, "audit-file", config.AuditFile, "Path to audit log file")
 	flag.StringVar(&config.AuditURL, "audit-url", config.AuditURL, "Remote audit server URL")
+	flag.BoolVar(&config.EnableHTTPS, "s", config.EnableHTTPS, "Enable HTTPS")
+	flag.StringVar(&config.HTTPSCertFile, "https-cert", config.HTTPSCertFile, "Path to TLS certificate")
+	flag.StringVar(&config.HTTPSKeyFile, "https-key", config.HTTPSKeyFile, "Path to TLS private key")
 	flag.Parse()
+
+	if config.EnableHTTPS && strings.HasPrefix(config.BaseURL, "http://") {
+		config.BaseURL = "https://" + strings.TrimPrefix(config.BaseURL, "http://")
+	}
 
 	return &config, nil
 }
