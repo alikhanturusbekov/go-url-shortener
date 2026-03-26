@@ -2,24 +2,27 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 	"github.com/caarlos0/env/v6"
+	"os"
 	"strings"
 )
 
 // Config structure of application configuration
 type Config struct {
-	Address          string `env:"SERVER_ADDRESS"`
-	BaseURL          string `env:"BASE_URL"`
-	LogLevel         string `env:"LOG_LEVEL"`
-	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
-	DatabaseDSN      string `env:"DATABASE_DSN"`
-	AuthorizationKey string `env:"AUTHORIZATION_KEY"`
-	AuditFile        string `env:"AUDIT_FILE"`
-	AuditURL         string `env:"AUDIT_URL"`
-	EnableHTTPS      bool   `env:"ENABLE_HTTPS"`
-	HTTPSCertFile    string `env:"HTTPS_CERT_FILE"`
-	HTTPSKeyFile     string `env:"HTTPS_KEY_FILE"`
+	Address          string `env:"SERVER_ADDRESS" json:"server_address"`
+	BaseURL          string `env:"BASE_URL" json:"base_url"`
+	LogLevel         string `env:"LOG_LEVEL" json:"log_level"`
+	FileStoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DatabaseDSN      string `env:"DATABASE_DSN" json:"database_dsn"`
+	AuthorizationKey string `env:"AUTHORIZATION_KEY" json:"authorization_key"`
+	AuditFile        string `env:"AUDIT_FILE" json:"audit_file"`
+	AuditURL         string `env:"AUDIT_URL" json:"audit_url"`
+	EnableHTTPS      bool   `env:"ENABLE_HTTPS" json:"enable_https"`
+	HTTPSCertFile    string `env:"HTTPS_CERT_FILE" json:"https_cert_file"`
+	HTTPSKeyFile     string `env:"HTTPS_KEY_FILE" json:"https_key_file"`
 }
 
 // NewConfig loads configuration from defaults, environment variables and flags
@@ -37,6 +40,7 @@ func NewConfig() (*Config, error) {
 		HTTPSCertFile:    "certs/server.crt",
 		HTTPSKeyFile:     "certs/server.key",
 	}
+	var configPath string
 
 	if err := env.Parse(&config); err != nil {
 		return nil, err
@@ -52,7 +56,19 @@ func NewConfig() (*Config, error) {
 	flag.BoolVar(&config.EnableHTTPS, "s", config.EnableHTTPS, "Enable HTTPS")
 	flag.StringVar(&config.HTTPSCertFile, "https-cert", config.HTTPSCertFile, "Path to TLS certificate")
 	flag.StringVar(&config.HTTPSKeyFile, "https-key", config.HTTPSKeyFile, "Path to TLS private key")
+	flag.StringVar(&configPath, "c", os.Getenv("CONFIG"), "Path to config file")
 	flag.Parse()
+
+	if configPath != "" {
+		file, err := os.Open(configPath)
+		if err == nil {
+			defer file.Close()
+			decoder := json.NewDecoder(file)
+			if err = decoder.Decode(&config); err != nil {
+				logger.Log.Error("error while parsing config file: " + err.Error())
+			}
+		}
+	}
 
 	if config.EnableHTTPS && strings.HasPrefix(config.BaseURL, "http://") {
 		config.BaseURL = "https://" + strings.TrimPrefix(config.BaseURL, "http://")
