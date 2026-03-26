@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/certs"
 	"github.com/go-chi/chi/v5"
@@ -14,7 +15,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
@@ -121,27 +125,71 @@ func run() error {
 			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
 	})
 
-	if appConfig.EnableHTTPS {
-		if err := certs.EnsureCertificates(appConfig.HTTPSCertFile, appConfig.HTTPSKeyFile); err != nil {
-			return fmt.Errorf("ensure certificates: %w", err)
-		}
-
-		logger.Log.Info("starting HTTPS server",
-			zap.String("address", appConfig.Address),
-			zap.String("cert_file", appConfig.HTTPSCertFile),
-			zap.String("key_file", appConfig.HTTPSKeyFile),
-		)
-
-		return http.ListenAndServeTLS(
-			appConfig.Address,
-			appConfig.HTTPSCertFile,
-			appConfig.HTTPSKeyFile,
-			r,
-		)
+	srv := &http.Server{
+		Addr:    appConfig.Address,
+		Handler: r,
 	}
 
-	logger.Log.Info("running server...", zap.String("address", appConfig.Address))
-	return http.ListenAndServe(appConfig.Address, r)
+	serverErr := make(chan error, 1)
+
+	go func() {
+		var err error
+
+		if appConfig.EnableHTTPS {
+			if err = certs.EnsureCertificates(appConfig.HTTPSCertFile, appConfig.HTTPSKeyFile); err != nil {
+				serverErr <- fmt.Errorf("ensure certificates: %w", err)
+				return
+			}
+
+			logger.Log.Info("starting HTTPS server",
+				zap.String("address", appConfig.Address),
+				zap.String("cert_file", appConfig.HTTPSCertFile),
+				zap.String("key_file", appConfig.HTTPSKeyFile),
+			)
+
+			err = srv.ListenAndServeTLS(
+				appConfig.HTTPSCertFile,
+				appConfig.HTTPSKeyFile,
+			)
+		} else {
+			logger.Log.Info("running server...", zap.String("address", appConfig.Address))
+			err = srv.ListenAndServe()
+		}
+
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+			return
+		}
+
+		serverErr <- nil
+	}()
+
+	sigCtx, stop := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+	defer stop()
+
+	select {
+	case err := <-serverErr:
+		return err
+	case <-sigCtx.Done():
+		logger.Log.Info("shutdown signal received")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("shutdown failed: %w", err)
+	}
+
+	cancel()
+
+	logger.Log.Info("server stopped gracefully")
+	return nil
 }
 
 // setupRepository initializes the storage based on configuration
