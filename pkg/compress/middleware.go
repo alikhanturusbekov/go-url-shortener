@@ -2,6 +2,8 @@ package compress
 
 import (
 	"compress/gzip"
+	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"strings"
@@ -50,7 +52,9 @@ func GzipCompressor() func(http.Handler) http.Handler {
 					return
 				}
 				defer func() {
-					gr.R.Close()
+					if err := gr.R.Close(); err != nil {
+						logger.Log.Warn("failed to close gzip reader", zap.Error(err))
+					}
 					gzipReaderPool.Put(gr)
 				}()
 				r.Body = &readCloser{
@@ -68,7 +72,9 @@ func GzipCompressor() func(http.Handler) http.Handler {
 			gz := gzipWriterPool.Get()
 			gz.W.Reset(w)
 			defer func() {
-				gz.W.Close()
+				if err := gz.W.Close(); err != nil {
+					logger.Log.Warn("failed to close gzip writer", zap.Error(err))
+				}
 				gzipWriterPool.Put(gz)
 			}()
 

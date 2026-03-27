@@ -76,13 +76,17 @@ func (r *URLDatabaseRepository) SaveMany(ctx context.Context, urlPairs []*model.
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		err = errors.Join(err, tx.Rollback())
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO url_pairs (uid, short, long, user_id, is_deleted) VALUES ($1, $2, $3, $4, $5)")
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		err = errors.Join(err, stmt.Close())
+	}()
 
 	for _, urlPair := range urlPairs {
 		_, fail := stmt.Exec(urlPair.ID, urlPair.Short, urlPair.Long, urlPair.UserID, urlPair.IsDeleted)
@@ -108,7 +112,9 @@ func (r *URLDatabaseRepository) GetAllByUserID(ctx context.Context, userID strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		var pair model.URLPair

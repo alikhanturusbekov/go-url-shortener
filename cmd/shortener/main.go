@@ -80,7 +80,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer database.Close()
+	defer func() {
+		err = errors.Join(err, database.Close())
+	}()
 
 	if appConfig.DatabaseDSN != "" {
 		if err := applyMigrations(database, "migrations"); err != nil {
@@ -215,7 +217,11 @@ func setupRepository(config *config.Config) (repository.URLRepository, func(), e
 		}
 
 		databaseRepo := repository.NewURLDatabaseRepository(database)
-		cleanup := func() { databaseRepo.Close() }
+		cleanup := func() {
+			if err := databaseRepo.Close(); err != nil {
+				logger.Log.Error("failed to close database", zap.Error(err))
+			}
+		}
 
 		return databaseRepo, cleanup, nil
 	}

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 	"github.com/caarlos0/env/v6"
+	"go.uber.org/zap"
 	"os"
 	"strings"
 )
@@ -61,8 +62,15 @@ func NewConfig() (*Config, error) {
 
 	if configPath != "" {
 		file, err := os.Open(configPath)
-		if err == nil {
-			defer file.Close()
+		if err != nil {
+			logger.Log.Warn("failed to open config file", zap.Error(err))
+		} else {
+			defer func() {
+				if err := file.Close(); err != nil {
+					logger.Log.Warn("failed to close config file", zap.Error(err))
+				}
+			}()
+
 			decoder := json.NewDecoder(file)
 			if err = decoder.Decode(&config); err != nil {
 				logger.Log.Error("error while parsing config file: " + err.Error())

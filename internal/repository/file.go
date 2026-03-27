@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"slices"
@@ -43,7 +44,9 @@ func (r *URLFileRepository) Save(_ context.Context, urlPair *model.URLPair) erro
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		err = errors.Join(err, file.Close())
+	}()
 
 	stat, err := file.Stat()
 	if err != nil {
@@ -88,7 +91,9 @@ func (r *URLFileRepository) SaveMany(_ context.Context, urlPairs []*model.URLPai
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		err = errors.Join(err, file.Close())
+	}()
 
 	stat, err := file.Stat()
 	if err != nil {
@@ -169,7 +174,9 @@ func (r *URLFileRepository) load() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		err = errors.Join(err, file.Close())
+	}()
 
 	var urlPairs []*model.URLPair
 	decoder := json.NewDecoder(file)
