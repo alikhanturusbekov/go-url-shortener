@@ -3,6 +3,7 @@ package audit
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -33,7 +34,9 @@ func (h *HTTPObserver) Send(event Event) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err = errors.Join(err, resp.Body.Close())
+	}()
 
 	if resp.StatusCode >= 300 {
 		return fmt.Errorf("bad status: %d", resp.StatusCode)
