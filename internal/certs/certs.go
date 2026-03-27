@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -14,11 +15,21 @@ import (
 	"time"
 )
 
+const (
+	// certValidityDuration shows for how long the certificate is valid
+	certValidityDuration = 365 * 24 * time.Hour
+)
+
+var (
+	// ErrMissingCertOrKeyPath defines the error when certPath or keyPath is not provided
+	ErrMissingCertOrKeyPath = errors.New("certificate path and key path must be set")
+)
+
 // EnsureCertificates checks the certificates
 // if not exist, it generates the certificate and the key in the given filepath
 func EnsureCertificates(certPath, keyPath string) error {
 	if certPath == "" || keyPath == "" {
-		return fmt.Errorf("certificate path and key path must be set")
+		return ErrMissingCertOrKeyPath
 	}
 
 	certExists := fileExists(certPath)
@@ -42,7 +53,7 @@ func EnsureCertificates(certPath, keyPath string) error {
 	}
 
 	notBefore := time.Now().Add(-time.Hour)
-	notAfter := notBefore.Add(365 * 24 * time.Hour)
+	notAfter := notBefore.Add(certValidityDuration)
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -77,11 +88,7 @@ func EnsureCertificates(certPath, keyPath string) error {
 		return err
 	}
 
-	if err := writeKey(keyPath, priv); err != nil {
-		return err
-	}
-
-	return nil
+	return writeKey(keyPath, priv)
 }
 
 // writeCert creates certificate file
@@ -90,7 +97,12 @@ func writeCert(certPath string, derBytes []byte) error {
 	if err != nil {
 		return fmt.Errorf("create certificate file: %w", err)
 	}
-	defer certOut.Close()
+
+	defer func() {
+		if closeErr := certOut.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close certificate file: %w", closeErr))
+		}
+	}()
 
 	if err := pem.Encode(certOut, &pem.Block{
 		Type:  "CERTIFICATE",
@@ -108,7 +120,11 @@ func writeKey(keyPath string, priv *rsa.PrivateKey) error {
 	if err != nil {
 		return fmt.Errorf("create private key file: %w", err)
 	}
-	defer keyOut.Close()
+	defer func() {
+		if closeErr := keyOut.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close key file: %w", closeErr))
+		}
+	}()
 
 	if err := pem.Encode(keyOut, &pem.Block{
 		Type:  "RSA PRIVATE KEY",

@@ -31,6 +31,10 @@ import (
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
+const (
+	shutdownCtxTimeout = 10 * time.Second
+)
+
 var (
 	BuildVersion string = "N/A"
 	BuildDate    string = "N/A"
@@ -179,7 +183,7 @@ func run() error {
 		logger.Log.Info("shutdown signal received")
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownCtxTimeout)
 	defer shutdownCancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
