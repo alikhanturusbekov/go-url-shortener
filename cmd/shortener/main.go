@@ -33,6 +33,10 @@ import (
 
 const (
 	shutdownCtxTimeout = 10 * time.Second
+	readHeaderTimeout  = 5 * time.Second
+	readTimeout        = 10 * time.Second
+	writeTimeout       = 10 * time.Second
+	idleTimeout        = 60 * time.Second
 )
 
 var (
@@ -130,8 +134,12 @@ func run() error {
 	})
 
 	srv := &http.Server{
-		Addr:    appConfig.Address,
-		Handler: r,
+		Addr:              appConfig.Address,
+		Handler:           r,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	serverErr := make(chan error, 1)
