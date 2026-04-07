@@ -6,29 +6,21 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/alikhanturusbekov/go-url-shortener/internal/certs"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/middleware"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/audit"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/authorization"
-	"github.com/alikhanturusbekov/go-url-shortener/pkg/compress"
 	"github.com/alikhanturusbekov/go-url-shortener/pkg/logger"
 )
 
@@ -111,78 +103,16 @@ func run() error {
 	go deleteURLWorker.Run(ctx)
 
 	urlService := service.NewURLService(urlRepo, appConfig.BaseURL, deleteURLWorker, auditPublisher)
-	urlHandler := handler.NewURLHandler(urlService, database)
 
-	r := chi.NewRouter()
-
-	r.Mount("/debug", chimiddleware.Profiler())
-
-	r.Group(func(r chi.Router) {
-		r.Use(logger.RequestLogger())
-		r.Use(compress.GzipCompressor())
-		r.Use(authorization.AuthMiddleware([]byte(appConfig.AuthorizationKey)))
-
-		r.Get("/ping", urlHandler.Ping)
-		r.Get(`/{id}`, urlHandler.ResolveURL)
-		r.With(chimiddleware.AllowContentType("text/plain")).
-			Post(`/`, urlHandler.ShortenURLAsText)
-		r.With(chimiddleware.AllowContentType("application/json")).
-			Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
-		r.With(chimiddleware.AllowContentType("application/json")).
-			Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
-
-		r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
-		r.With(chimiddleware.AllowContentType("application/json")).
-			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
-
-		r.Route("/api/internal", func(r chi.Router) {
-			r.Use(middleware.TrustedSubnet(appConfig.TrustedSubnet))
-			r.Get("/stats", urlHandler.GetStats)
-		})
-	})
-
-	srv := &http.Server{
-		Addr:              appConfig.Address,
-		Handler:           r,
-		ReadHeaderTimeout: readHeaderTimeout,
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
+	grpcSrv, grpcListener, err := setupGRPCServer(appConfig, urlService)
+	if err != nil {
+		return err
 	}
 
-	serverErr := make(chan error, 1)
+	srv := setupHTTPServer(appConfig, urlService, database)
 
-	go func() {
-		var err error
-
-		if appConfig.EnableHTTPS {
-			if err = certs.EnsureCertificates(appConfig.HTTPSCertFile, appConfig.HTTPSKeyFile); err != nil {
-				serverErr <- fmt.Errorf("ensure certificates: %w", err)
-				return
-			}
-
-			logger.Log.Info("starting HTTPS server",
-				zap.String("address", appConfig.Address),
-				zap.String("cert_file", appConfig.HTTPSCertFile),
-				zap.String("key_file", appConfig.HTTPSKeyFile),
-			)
-
-			err = srv.ListenAndServeTLS(
-				appConfig.HTTPSCertFile,
-				appConfig.HTTPSKeyFile,
-			)
-		} else {
-			logger.Log.Info("running server...", zap.String("address", appConfig.Address))
-			err = srv.ListenAndServe()
-		}
-
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErr <- err
-			return
-		}
-
-		serverErr <- nil
-	}()
+	grpcErr := startGRPCServer(grpcSrv, grpcListener)
+	serverErr := startHTTPServer(appConfig, srv)
 
 	sigCtx, stop := signal.NotifyContext(
 		context.Background(),
@@ -195,12 +125,16 @@ func run() error {
 	select {
 	case err := <-serverErr:
 		return err
+	case err := <-grpcErr:
+		return err
 	case <-sigCtx.Done():
 		logger.Log.Info("shutdown signal received")
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownCtxTimeout)
 	defer shutdownCancel()
+
+	grpcSrv.GracefulStop()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown failed: %w", err)
