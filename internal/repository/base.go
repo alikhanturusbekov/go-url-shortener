@@ -27,4 +27,7 @@ type URLRepository interface {
 
 	// DeleteByShorts marks URL pairs as deleted for a user
 	DeleteByShorts(ctx context.Context, userID string, shorts []string) error
+
+	// GetStats gets the total number of shortened urls and users
+	GetStats(ctx context.Context) (*model.Stats, error)
 }

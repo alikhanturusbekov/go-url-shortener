@@ -24,6 +24,7 @@ type Config struct {
 	EnableHTTPS      bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 	HTTPSCertFile    string `env:"HTTPS_CERT_FILE" json:"https_cert_file"`
 	HTTPSKeyFile     string `env:"HTTPS_KEY_FILE" json:"https_key_file"`
+	TrustedSubnet    string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 }
 
 // NewConfig loads configuration from defaults, environment variables and flags
@@ -40,6 +41,7 @@ func NewConfig() (*Config, error) {
 		EnableHTTPS:      false,
 		HTTPSCertFile:    "certs/server.crt",
 		HTTPSKeyFile:     "certs/server.key",
+		TrustedSubnet:    "",
 	}
 	var configPath string
 
@@ -57,6 +59,7 @@ func NewConfig() (*Config, error) {
 	flag.BoolVar(&config.EnableHTTPS, "s", config.EnableHTTPS, "Enable HTTPS")
 	flag.StringVar(&config.HTTPSCertFile, "https-cert", config.HTTPSCertFile, "Path to TLS certificate")
 	flag.StringVar(&config.HTTPSKeyFile, "https-key", config.HTTPSKeyFile, "Path to TLS private key")
+	flag.StringVar(&config.TrustedSubnet, "t", config.TrustedSubnet, "trusted subnet in CIDR format")
 	flag.StringVar(&configPath, "c", os.Getenv("CONFIG"), "Path to config file")
 	flag.Parse()
 

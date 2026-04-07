@@ -78,3 +78,21 @@ func (r *URLInMemoryRepository) GetAllByUserID(_ context.Context, userID string)
 
 	return result, nil
 }
+
+// GetStats gets the total number of shortened urls and users
+func (r *URLInMemoryRepository) GetStats(_ context.Context) (*model.Stats, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	users := make(map[string]struct{})
+	for _, urlPair := range r.data {
+		if urlPair.UserID != "" {
+			users[urlPair.UserID] = struct{}{}
+		}
+	}
+
+	return &model.Stats{
+		URLs:  len(r.data),
+		Users: len(users),
+	}, nil
+}

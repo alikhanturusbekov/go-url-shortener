@@ -48,6 +48,12 @@ type DeleteURLTask struct {
 	Short  string `json:"short"`
 }
 
+// Stats is the result of statistics retrieval
+type Stats struct {
+	URLs  int `json:"urls"`
+	Users int `json:"users"`
+}
+
 // NewURLPair creates a new URLPair instance
 // If id is not provided, it is generated UUID
 func NewURLPair(short, long string, id *string, userID string, isDeleted bool) *URLPair {
