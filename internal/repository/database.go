@@ -149,6 +149,25 @@ func (r *URLDatabaseRepository) DeleteByShorts(ctx context.Context, userID strin
 	return err
 }
 
+// GetStats gets the total number of shortened urls and users
+func (r *URLDatabaseRepository) GetStats(ctx context.Context) (*model.Stats, error) {
+	const query = `
+		SELECT
+			COUNT(*) AS urls,
+			COUNT(DISTINCT user_id) AS users
+		FROM url_pairs;
+	`
+
+	stats := &model.Stats{}
+
+	err := r.db.QueryRowContext(ctx, query).Scan(&stats.URLs, &stats.Users)
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
 // Close closes the database connection
 func (r *URLDatabaseRepository) Close() error {
 	return r.db.Close()

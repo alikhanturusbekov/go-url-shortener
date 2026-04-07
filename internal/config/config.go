@@ -14,6 +14,7 @@ import (
 // Config structure of application configuration
 type Config struct {
 	Address          string `env:"SERVER_ADDRESS" json:"server_address"`
+	GRPCAddress      string `env:"GRPC_SERVER_ADDRESS" json:"grpc_server_address"`
 	BaseURL          string `env:"BASE_URL" json:"base_url"`
 	LogLevel         string `env:"LOG_LEVEL" json:"log_level"`
 	FileStoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
@@ -24,12 +25,14 @@ type Config struct {
 	EnableHTTPS      bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 	HTTPSCertFile    string `env:"HTTPS_CERT_FILE" json:"https_cert_file"`
 	HTTPSKeyFile     string `env:"HTTPS_KEY_FILE" json:"https_key_file"`
+	TrustedSubnet    string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 }
 
 // NewConfig loads configuration from defaults, environment variables and flags
 func NewConfig() (*Config, error) {
 	config := Config{
 		Address:          ":8080",
+		GRPCAddress:      ":3200",
 		BaseURL:          "http://localhost:8080",
 		LogLevel:         "info",
 		FileStoragePath:  "",
@@ -40,6 +43,7 @@ func NewConfig() (*Config, error) {
 		EnableHTTPS:      false,
 		HTTPSCertFile:    "certs/server.crt",
 		HTTPSKeyFile:     "certs/server.key",
+		TrustedSubnet:    "",
 	}
 	var configPath string
 
@@ -48,6 +52,7 @@ func NewConfig() (*Config, error) {
 	}
 
 	flag.StringVar(&config.Address, "a", config.Address, "HTTP server start address")
+	flag.StringVar(&config.GRPCAddress, "g", config.GRPCAddress, "gRPC server address")
 	flag.StringVar(&config.BaseURL, "b", config.BaseURL, "The base URL of shortened url")
 	flag.StringVar(&config.FileStoragePath, "f", config.FileStoragePath, "The file path for url pairs storage")
 	flag.StringVar(&config.DatabaseDSN, "d", config.DatabaseDSN, "Database connection string")
@@ -57,6 +62,7 @@ func NewConfig() (*Config, error) {
 	flag.BoolVar(&config.EnableHTTPS, "s", config.EnableHTTPS, "Enable HTTPS")
 	flag.StringVar(&config.HTTPSCertFile, "https-cert", config.HTTPSCertFile, "Path to TLS certificate")
 	flag.StringVar(&config.HTTPSKeyFile, "https-key", config.HTTPSKeyFile, "Path to TLS private key")
+	flag.StringVar(&config.TrustedSubnet, "t", config.TrustedSubnet, "trusted subnet in CIDR format")
 	flag.StringVar(&configPath, "c", os.Getenv("CONFIG"), "Path to config file")
 	flag.Parse()
 

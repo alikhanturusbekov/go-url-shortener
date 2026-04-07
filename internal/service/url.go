@@ -181,6 +181,23 @@ func (s *URLService) DeleteUserURLs(userID string, shorts []string) *appError.HT
 	return nil
 }
 
+// GetStats gets the total number of shortened urls and users
+func (s *URLService) GetStats() (*model.Stats, *appError.HTTPError) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	stats, err := s.repo.GetStats(ctx)
+	if err != nil {
+		return nil, appError.NewHTTPError(
+			http.StatusInternalServerError,
+			"failed to get stats",
+			err,
+		)
+	}
+
+	return stats, nil
+}
+
 // validateURL validates and normalizes a URL string
 func (s *URLService) validateURL(originalURL string) (string, error) {
 	trimmedURL := strings.TrimSpace(originalURL)

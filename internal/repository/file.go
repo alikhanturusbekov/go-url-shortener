@@ -153,6 +153,38 @@ func (r *URLFileRepository) DeleteByShorts(ctx context.Context, userID string, s
 	return nil
 }
 
+// GetStats gets the total number of shortened urls and users
+func (r *URLFileRepository) GetStats(_ context.Context) (*model.Stats, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	file, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_RDONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errors.Join(err, file.Close())
+	}()
+
+	var urlPairs []*model.URLPair
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&urlPairs); err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+
+	users := make(map[string]struct{})
+	for _, pair := range urlPairs {
+		if pair != nil && pair.UserID != "" {
+			users[pair.UserID] = struct{}{}
+		}
+	}
+
+	return &model.Stats{
+		URLs:  len(urlPairs),
+		Users: len(users),
+	}, nil
+}
+
 // syncFile rewrites the file with current in-memory data
 func (r *URLFileRepository) syncFile(ctx context.Context) error {
 	err := os.Truncate(r.filePath, 0)
