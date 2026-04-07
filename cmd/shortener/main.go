@@ -133,6 +133,8 @@ func run() error {
 		r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
 		r.With(middleware.AllowContentType("application/json")).
 			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
+
+		r.Get(`/api/internal/stats`, urlHandler.GetStats)
 	})
 
 	srv := &http.Server{

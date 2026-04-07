@@ -200,6 +200,22 @@ func (h *URLHandler) DeleteUserURLs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// GetStats gets the total number of shortened urls and users
+func (h *URLHandler) GetStats(w http.ResponseWriter, _ *http.Request) {
+	stats, appErr := h.service.GetStats()
+	if appErr != nil {
+		http.Error(w, appErr.GetFullMessage(), appErr.Code)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
+}
+
 // getUserID extracts the user ID from request context
 func (h *URLHandler) getUserID(r *http.Request) string {
 	userID, ok := authorization.UserIDFromContext(r.Context())
