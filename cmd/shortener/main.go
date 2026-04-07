@@ -6,9 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/alikhanturusbekov/go-url-shortener/internal/certs"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"io"
@@ -20,8 +19,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alikhanturusbekov/go-url-shortener/internal/certs"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/config"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/handler"
+	"github.com/alikhanturusbekov/go-url-shortener/internal/middleware"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/repository"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/service"
 	"github.com/alikhanturusbekov/go-url-shortener/internal/worker"
@@ -114,7 +115,7 @@ func run() error {
 
 	r := chi.NewRouter()
 
-	r.Mount("/debug", middleware.Profiler())
+	r.Mount("/debug", chimiddleware.Profiler())
 
 	r.Group(func(r chi.Router) {
 		r.Use(logger.RequestLogger())
@@ -123,18 +124,21 @@ func run() error {
 
 		r.Get("/ping", urlHandler.Ping)
 		r.Get(`/{id}`, urlHandler.ResolveURL)
-		r.With(middleware.AllowContentType("text/plain")).
+		r.With(chimiddleware.AllowContentType("text/plain")).
 			Post(`/`, urlHandler.ShortenURLAsText)
-		r.With(middleware.AllowContentType("application/json")).
+		r.With(chimiddleware.AllowContentType("application/json")).
 			Post(`/api/shorten`, urlHandler.ShortenURLAsJSON)
-		r.With(middleware.AllowContentType("application/json")).
+		r.With(chimiddleware.AllowContentType("application/json")).
 			Post(`/api/shorten/batch`, urlHandler.BatchShortenURL)
 
 		r.Get(`/api/user/urls`, urlHandler.GetUserURLs)
-		r.With(middleware.AllowContentType("application/json")).
+		r.With(chimiddleware.AllowContentType("application/json")).
 			Delete(`/api/user/urls`, urlHandler.DeleteUserURLs)
 
-		r.Get(`/api/internal/stats`, urlHandler.GetStats)
+		r.Route("/api/internal", func(r chi.Router) {
+			r.Use(middleware.TrustedSubnet(appConfig.TrustedSubnet))
+			r.Get("/stats", urlHandler.GetStats)
+		})
 	})
 
 	srv := &http.Server{
